@@ -1,0 +1,82 @@
+@page "{id:guid}"
+@model Ilm.Web.Pages.People.DetailsModel
+@using Ilm.Domain.Identity
+@{ var v = Model.View; ViewData["Title"] = v.Person.DisplayName; }
+<h1>@v.Person.DisplayName</h1>
+<div class="cards">
+<div class="card"><dl class="kv">
+    <dt>ILM person ID</dt><dd>@v.Person.PersonIdentifier (@v.Person.PersonIdentifierSource)</dd>
+    <dt>Employee identifier</dt><dd>@(v.Person.EmployeeIdentifier ?? "none (no HR source)")</dd>
+    <dt>Business entity</dt><dd>@v.Person.BusinessEntity</dd>
+    <dt>Department</dt><dd>@v.Person.Department</dd>
+    <dt>Lifecycle status</dt><dd>@v.Person.LifecycleStatus</dd>
+</dl></div>
+<div class="card"><h2>Migration state</h2>
+@if (v.Migration is null) { <p>No migration state recorded.</p> }
+else
+{
+    <dl class="kv">
+        <dt>Wave</dt><dd>@v.Migration.MigrationWave</dd>
+        <dt>State</dt><dd>@v.Migration.State</dd>
+        <dt>Authentication authority</dt><dd>@v.Migration.AuthenticationAuthority</dd>
+        <dt>Provisioning authority</dt><dd>@v.Migration.ProvisioningAuthority</dd>
+        <dt>Enabled-state owner</dt><dd>@v.Migration.AccountEnabledStateOwner</dd>
+    </dl>
+}
+</div>
+<div class="card"><h2>Permitted actions</h2>
+<partial name="_Actions" model="v.Actions" />
+@if (v.ActiveLeaver is not null) { <p>Active leaver: <a href="/Leavers/Details/@v.ActiveLeaver.Id">@v.ActiveLeaver.State</a></p> }
+else if (v.Actions.Any(a => a.Name == "Initiate containment" && a.Available)) { <p><a class="btn" href="/Leavers/New?personId=@v.Person.Id">Initiate containment (leaver)</a></p> }
+</div>
+</div>
+
+<h2>Linked identities</h2>
+<table class="grid"><thead><tr><th>System</th><th>Account</th><th>Connector / tenant</th><th>Current DN</th><th>State</th><th>Link</th><th>Protection</th><th>AccountEnabledState owner (leaver)</th></tr></thead><tbody>
+@foreach (var i in v.Identities)
+{
+    var enabled = i.LeaverAuthority.FirstOrDefault(a => a.AttributeSet == Ilm.Domain.Authority.AttributeSet.AccountEnabledState);
+    <tr>
+        <td>@i.Identity.System</td>
+        <td>@if (i.Identity.System == SystemKind.ActiveDirectory) { <a href="/Users/Details?connector=@i.Identity.ConnectorId&id=@i.Identity.ObjectGuid">@i.Identity.DisplayLabel</a> } else { @i.Identity.DisplayLabel }<br><small class="muted">@i.Identity.Population / @i.Identity.AccountType</small></td>
+        <td>@(i.Identity.ConnectorId ?? i.Identity.ForestOrTenantId)</td>
+        <td><small>@(i.CurrentDistinguishedName ?? "-")</small></td>
+        <td>@i.Identity.State</td>
+        <td>@if (i.Link is not null) { <span class="badge @DetailsModel.LinkBadge(i.Link.Confidence)">@i.Link.Confidence</span><br><small>@i.Link.EvidenceType</small> } else { <span class="badge warn">No link</span> }</td>
+        <td><partial name="_Protection" model="i.Protection" /></td>
+        <td>@(enabled is null ? "-" : enabled.IsResolved ? $"{enabled.AuthoritativeSystem} (containment: {enabled.ContainmentOwner}, {enabled.Strategy})" : $"{enabled.Outcome}")</td>
+    </tr>
+}
+</tbody></table>
+
+<h2>Authority by attribute set (leaver)</h2>
+@foreach (var i in v.Identities)
+{
+    <h3>@i.Identity.System @i.Identity.DisplayLabel</h3>
+    <table class="grid compact"><thead><tr><th>Attribute set</th><th>Outcome</th><th>Owner</th><th>Containment owner</th><th>Strategy</th></tr></thead><tbody>
+    @foreach (var a in i.LeaverAuthority)
+    {
+        <tr><td>@a.AttributeSet</td><td>@a.Outcome</td><td>@a.AuthoritativeSystem</td><td>@a.ContainmentOwner</td><td>@a.Strategy</td></tr>
+    }
+    </tbody></table>
+}
+
+<h2>Identity link evidence</h2>
+<table class="grid"><thead><tr><th>Identity</th><th>Method</th><th>Evidence</th><th>Confidence</th><th>Approved by</th><th></th></tr></thead><tbody>
+@foreach (var l in v.Links)
+{
+    var target = v.Identities.FirstOrDefault(i => i.Identity.Id == l.TargetIdentityId);
+    <tr>
+        <td>@(target?.Identity.DisplayLabel ?? l.TargetIdentityId.ToString())</td><td>@l.LinkMethod</td><td>@l.EvidenceType<br><small>@l.EvidenceReference</small></td>
+        <td><span class="badge @DetailsModel.LinkBadge(l.Confidence)">@l.Confidence</span></td><td>@l.ApprovedBy</td>
+        <td>
+        @if (l.Confidence is LinkConfidence.Provisional or LinkConfidence.Ambiguous && Model.Can(Permission.ApproveIdentityLink))
+        {
+            <form method="post" asp-page-handler="ApproveLink" class="inline"><input type="hidden" name="linkId" value="@l.Id" /><button type="submit">Approve</button></form>
+            <form method="post" asp-page-handler="RejectLink" class="inline"><input type="hidden" name="linkId" value="@l.Id" /><input type="text" name="reason" placeholder="Reason" /><button type="submit" class="secondary">Reject</button></form>
+        }
+        </td>
+    </tr>
+}
+</tbody></table>
+<p class="muted">Email-only matches stay Provisional. Name-only matches can never be approved. The person who proposed a link cannot approve it.</p>

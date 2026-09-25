@@ -1,0 +1,19 @@
+@model ProtectionDecision?
+@if (Model is null)
+{
+    <span class="badge muted">n/a</span>
+}
+else if (Model.Status == ProtectionStatus.Clear)
+{
+    <span class="badge ok">Clear</span>
+}
+else if (Model.Status == ProtectionStatus.Protected)
+{
+    <span class="badge danger" title="@string.Join("; ", Model.Reasons.Select(r => r.Detail))">Protected</span>
+    <ul class="reasons">@foreach (var r in Model.Reasons) { <li>@r.Source / @r.Category: @r.Detail</li> }</ul>
+}
+else
+{
+    <span class="badge warn">Unknown</span>
+    <ul class="reasons">@foreach (var u in Model.Unknowns) { <li>@u</li> }</ul>
+}

@@ -1,0 +1,19 @@
+@page
+@model Ilm.Web.Pages.Directory.IndexModel
+@{ ViewData["Title"] = "Organizational units"; }
+<h1>Organizational units</h1>
+<p class="muted">Scopes are stored by OU objectGUID; the DN shown is resolved now. An unresolvable scope is inactive.</p>
+<table class="grid"><thead><tr><th>Scope</th><th>Connector</th><th>OU objectGUID</th><th>Current DN</th></tr></thead><tbody>
+@foreach (var r in Model.Roots)
+{
+    <tr><td><a href="/Directory?connector=@r.ConnectorId&ou=@r.OuGuid">@r.DisplayName</a></td><td>@r.ConnectorId</td><td>@r.OuGuid</td><td>@(r.DistinguishedName ?? "UNRESOLVED (scope inactive)")</td></tr>
+}
+</tbody></table>
+@if (Model.Ou is not null)
+{
+    <h2>Child OUs</h2>
+    <table class="grid"><thead><tr><th>OU</th><th>objectGUID</th><th>DN</th></tr></thead><tbody>
+    @foreach (var c in Model.Children) { <tr><td><a href="/Directory?connector=@c.ConnectorId&ou=@c.ObjectGuid">@c.Name</a></td><td>@c.ObjectGuid</td><td>@c.DistinguishedName</td></tr> }
+    @if (Model.Children.Count == 0) { <tr><td colspan="3">No child OUs.</td></tr> }
+    </tbody></table>
+}

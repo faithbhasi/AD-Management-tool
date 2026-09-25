@@ -1,0 +1,16 @@
+@page
+@model Ilm.Web.Pages.Admin.FlagsModel
+@using Ilm.Domain.Configuration
+@{ ViewData["Title"] = "Feature flags"; }
+<h1>Feature flags</h1>
+<p class="muted">Changing a flag creates a configuration proposal. Okta provisioning flags are rejected without an approved PCATEST feasibility report. There is no flag for Tier 0 management.</p>
+<form method="post" class="card">
+<table class="grid compact"><thead><tr><th>Enabled</th><th>Feature</th><th>Default</th></tr></thead><tbody>
+@foreach (var f in Enum.GetValues<Feature>())
+{
+    <tr><td><input type="checkbox" name="enabled" value="@f" @(Model.Config.IsEnabled(f) ? "checked" : "") /></td><td>@f</td><td>@(FeatureDefaults.EnabledByDefault.Contains(f) ? "Enabled" : "Disabled")</td></tr>
+}
+</tbody></table>
+<label for="summary">Summary</label><input type="text" id="summary" name="summary" size="80" />
+<p><button type="submit">Propose flag change</button></p>
+</form>

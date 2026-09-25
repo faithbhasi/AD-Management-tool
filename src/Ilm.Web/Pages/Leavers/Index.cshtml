@@ -1,0 +1,11 @@
+@page
+@model Ilm.Web.Pages.Leavers.IndexModel
+@{ ViewData["Title"] = "Leavers"; }
+<h1>Leaver containment</h1>
+<p><a href="/Leavers?activeOnly=@(!Model.ActiveOnly)">@(Model.ActiveOnly ? "Show all, including closed" : "Show active only")</a> · Start a leaver from a person's page.</p>
+<table class="grid"><thead><tr><th>Updated</th><th>Person</th><th>State</th><th>Urgency</th><th>Effective</th><th>Ticket</th><th>Requested by</th></tr></thead><tbody>
+@foreach (var (r, p) in Model.Requests)
+{
+    <tr><td>@r.UpdatedUtc.ToString("u")</td><td><a href="/Leavers/Details/@r.Id">@(p?.DisplayName ?? r.PersonId.ToString())</a></td><td class="state">@r.State</td><td>@r.Urgency</td><td>@r.EffectiveUtc.ToString("u")</td><td>@r.TicketReference</td><td>@r.RequestedByLabel</td></tr>
+}
+</tbody></table>

@@ -1,0 +1,14 @@
+@page
+@model Ilm.Web.Pages.Computers.IndexModel
+@{ ViewData["Title"] = "Computers"; }
+<h1>Computers</h1>
+<form method="get"><input type="search" name="q" value="@Model.Q" placeholder="Computer name prefix" /> <button type="submit">Search</button></form>
+<table class="grid"><thead><tr><th>Name</th><th>Operating system</th><th>Enabled</th><th>lastLogonTimestamp</th><th>DN</th></tr></thead><tbody>
+@foreach (var c in Model.Results)
+{
+    var stale = c.LastLogonTimestampUtc is { } l && DateTime.UtcNow - l > Ilm.Modules.ReadOnly.DirectoryViewService.StaleLogonThreshold;
+    <tr><td><a href="/Computers/Details?connector=@c.ConnectorId&id=@c.ObjectGuid">@c.Name</a></td><td>@c.OperatingSystem</td><td>@(c.IsDisabled ? "Disabled" : "Enabled")</td>
+    <td>@c.LastLogonTimestampUtc?.ToString("yyyy-MM-dd") @if (stale) { <span class="badge warn">stale</span> }</td><td><small>@c.DistinguishedName</small></td></tr>
+}
+</tbody></table>
+<p class="muted">lastLogonTimestamp replicates with a deliberate lag (up to about 14 days by default); treat it as approximate.</p>

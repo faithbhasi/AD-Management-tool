@@ -1,0 +1,13 @@
+@page
+@model Ilm.Web.Pages.Approvals.IndexModel
+@using Ilm.Domain.Approvals
+@{ ViewData["Title"] = "Approvals"; }
+<h1>Approvals</h1>
+<p>@foreach (var s in Enum.GetValues<ApprovalStatus>()) { <a class="btn @(s == Model.Status ? "" : "secondary")" href="/Approvals?status=@s">@s</a> } </p>
+<p class="muted">Requesters can never approve their own requests. Approvals bind to a content hash: a material change invalidates them. Decide on the linked page.</p>
+<table class="grid"><thead><tr><th>Created</th><th>Type</th><th>Summary</th><th>Requires</th><th>Requested by</th><th>Status</th><th>Decided by</th><th>Expires</th></tr></thead><tbody>
+@foreach (var a in Model.Items)
+{
+    <tr><td>@a.CreatedUtc.ToString("u")</td><td>@a.SubjectType</td><td><a href="@Ilm.Web.Pages.Approvals.IndexModel.Link(a)">@a.Summary</a></td><td>@a.RequiredRole</td><td>@a.RequestedByLabel</td><td>@a.Status @a.InvalidationReason</td><td>@a.DecidedByLabel</td><td>@a.ExpiresUtc.ToString("u")</td></tr>
+}
+</tbody></table>

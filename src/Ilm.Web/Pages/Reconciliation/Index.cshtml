@@ -1,0 +1,14 @@
+@page
+@model Ilm.Web.Pages.Reconciliation.IndexModel
+@{ ViewData["Title"] = "Reconciliation"; }
+<h1>Reconciliation</h1>
+<p class="muted">Reconciliation re-reads every known identity, records drift, detects out-of-band Okta lifecycle changes and escalates any contained account found enabled. It never writes to a directory.</p>
+@if (Model.Can(Permission.RunReconciliation)) { <form method="post" asp-page-handler="Run"><button type="submit">Run reconciliation now</button></form> }
+<h2>Recent runs</h2>
+<table class="grid"><thead><tr><th>Started</th><th>Trigger</th><th>Identities</th><th>Findings</th><th>Completed</th></tr></thead><tbody>
+@foreach (var r in Model.Runs) { <tr><td>@r.StartedUtc.ToString("u")</td><td>@r.Trigger</td><td>@r.IdentitiesChecked</td><td>@r.FindingsCount</td><td>@r.CompletedUtc?.ToString("u")</td></tr> }
+</tbody></table>
+<h2>Findings from the latest run</h2>
+<table class="grid"><thead><tr><th>Severity</th><th>Kind</th><th>Detail</th></tr></thead><tbody>
+@foreach (var f in Model.Findings) { <tr><td>@f.Severity</td><td>@f.Kind</td><td>@f.Detail</td></tr> }
+</tbody></table>

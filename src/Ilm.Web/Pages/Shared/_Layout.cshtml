@@ -1,0 +1,49 @@
+@using Ilm.Web.Authentication
+@{
+    var user = Context.User;
+    var signedIn = user.Identity?.IsAuthenticated == true;
+    var roles = signedIn ? CurrentActorAccessor.RolesFromClaims(user).Keys.Select(r => r.ToString()).ToList() : new List<string>();
+    bool Has(Permission p) => signedIn && Permissions.RolesFor(p).Any(r => roles.Contains(r.ToString()));
+    var message = TempData["Message"] as string;
+    var error = TempData["ErrorMessage"] as string;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - ILM Portal</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<header class="topbar">
+    <a class="brand" href="/">ILM Portal</a>
+    @if (signedIn)
+    {
+        <nav>
+            <a href="/">Dashboard</a>
+            @if (Has(Permission.ViewPeople)) { <a href="/People">People</a> }
+            @if (Has(Permission.ViewDirectory)) { <a href="/Users">Users</a> <a href="/Computers">Computers</a> <a href="/Directory">OUs</a> }
+            <a href="/Leavers">Leavers</a>
+            @if (Has(Permission.ViewApprovals)) { <a href="/Approvals">Approvals</a> }
+            <a href="/Tasks">Tasks</a>
+            <a href="/Alerts">Alerts</a>
+            @if (Has(Permission.ViewAudit)) { <a href="/Audit">Audit</a> }
+            @if (Has(Permission.RunReconciliation) || Has(Permission.ViewAdministration)) { <a href="/Reconciliation">Reconciliation</a> }
+            @if (Has(Permission.ViewAdministration)) { <a href="/Admin">Administration</a> }
+        </nav>
+        <div class="who">
+            <a href="/Account/Me">@user.Identity!.Name</a>
+            <span class="roles">@(roles.Count == 0 ? "no roles" : string.Join(", ", roles))</span>
+            <form method="post" asp-page="/Account/SignOut" class="inline"><button type="submit" class="link">Sign out</button></form>
+        </div>
+    }
+</header>
+<main class="container">
+    @if (!string.IsNullOrEmpty(message)) { <div class="banner ok">@message</div> }
+    @if (!string.IsNullOrEmpty(error)) { <div class="banner error">@error</div> }
+    @RenderBody()
+</main>
+<footer class="footer">ILM Portal · Tier 1 · fictional development data under example.test when running locally</footer>
+</body>
+</html>

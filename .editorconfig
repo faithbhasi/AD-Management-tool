@@ -1,0 +1,46 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,props,csproj,slnx,xml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_sort_system_directives_first = true
+csharp_prefer_braces = when_multiline:suggestion
+dotnet_style_readonly_field = true:warning
+csharp_style_var_for_built_in_types = true:silent
+dotnet_diagnostic.IDE0161.severity = warning
+
+# Security-relevant analysers raised to errors
+dotnet_diagnostic.CA2100.severity = error
+dotnet_diagnostic.CA3001.severity = error
+dotnet_diagnostic.CA3003.severity = error
+dotnet_diagnostic.CA3006.severity = error
+dotnet_diagnostic.CA3075.severity = error
+dotnet_diagnostic.CA3147.severity = error
+dotnet_diagnostic.CA5350.severity = error
+dotnet_diagnostic.CA5351.severity = error
+dotnet_diagnostic.CA5359.severity = error
+dotnet_diagnostic.CA5364.severity = error
+dotnet_diagnostic.CA5379.severity = error
+dotnet_diagnostic.CA5384.severity = error
+dotnet_diagnostic.CA5385.severity = error
+dotnet_diagnostic.CA5397.severity = error
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.CA1848.severity = none
+
+[tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.CA2100.severity = none

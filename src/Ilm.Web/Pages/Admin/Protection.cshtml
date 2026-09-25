@@ -1,0 +1,16 @@
+@page
+@model Ilm.Web.Pages.Admin.ProtectionModel
+@{ ViewData["Title"] = "Protection additions"; }
+<h1>Protection additions</h1>
+<p class="muted">Additions supplement the hardcoded floor with objects identified by the approved periodic attack-path analysis (DCSync rights, AdminSDHolder or domain-root control, privileged GPO editors, and so on). ILM does not compute ACL paths itself. Additions can only add protection.</p>
+<h2>Current additions</h2>
+<table class="grid compact"><thead><tr><th>Match</th><th>Value</th><th>Category</th><th>Source</th></tr></thead><tbody>
+@foreach (var p in Model.Config.Document.ProtectionAdditions) { <tr><td>@p.MatchOn</td><td>@p.Value</td><td>@p.Category</td><td>@p.Source (@p.SourceReference)</td></tr> }
+</tbody></table>
+<h2>Import from attack-path analysis</h2>
+<form method="post" class="card">
+    <label for="analysisReference">Analysis reference</label><input type="text" id="analysisReference" name="analysisReference" placeholder="attack-path-analysis-2026-10-01" required />
+    <label for="csv">Entries (matchOn,value,category per line)</label>
+    <textarea id="csv" name="csv" placeholder="Sid,S-1-5-21-...-4001,DcSyncRights&#10;DnsHostName,pki01.corp.example.test,CertificateAuthorityServer"></textarea>
+    <p><button type="submit">Propose additions</button></p>
+</form>

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Ilm.Web</RootNamespace>
+    <UserSecretsId>ilm-portal-dev-0000-example-test</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ilm.Application\Ilm.Application.csproj" />
+    <ProjectReference Include="..\Ilm.Infrastructure\Ilm.Infrastructure.csproj" />
+    <ProjectReference Include="..\Ilm.Persistence\Ilm.Persistence.csproj" />
+    <ProjectReference Include="..\Ilm.Modules.ReadOnly\Ilm.Modules.ReadOnly.csproj" />
+    <ProjectReference Include="..\Ilm.Modules.Leaver\Ilm.Modules.Leaver.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ilm.EndToEndTests" />
+    <InternalsVisibleTo Include="Ilm.SecurityTests" />
+  </ItemGroup>
+</Project>

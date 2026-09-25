@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Ilm.IntegrationTests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Ilm.Application\Ilm.Application.csproj" /><ProjectReference Include="..\..\src\Ilm.Infrastructure\Ilm.Infrastructure.csproj" /><ProjectReference Include="..\..\src\Ilm.Persistence\Ilm.Persistence.csproj" /><ProjectReference Include="..\..\src\Ilm.Modules.ReadOnly\Ilm.Modules.ReadOnly.csproj" /><ProjectReference Include="..\..\src\Ilm.Modules.Leaver\Ilm.Modules.Leaver.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+@page
+@model Ilm.Web.Pages.Alerts.IndexModel
+@{ ViewData["Title"] = "Alerts"; }
+<h1>Alerts</h1>
+<table class="grid"><thead><tr><th>Created</th><th>Severity</th><th>Category</th><th>Message</th><th>Operation</th><th></th></tr></thead><tbody>
+@foreach (var a in Model.Items)
+{
+    <tr><td>@a.CreatedUtc.ToString("u")</td><td>@a.Severity</td><td>@a.Category</td><td>@a.Message</td>
+    <td>@if (a.OperationId is not null) { <a href="/Audit?operationId=@a.OperationId">@a.OperationId.ToString()![..8]</a> }</td>
+    <td>@if (a.AcknowledgedUtc is null) { <form method="post" asp-page-handler="Acknowledge" class="inline"><input type="hidden" name="id" value="@a.Id" /><button type="submit" class="secondary">Acknowledge</button></form> } else { <span class="muted">acknowledged</span> }</td></tr>
+}
+</tbody></table>

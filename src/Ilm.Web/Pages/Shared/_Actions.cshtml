@@ -1,0 +1,10 @@
+@model IReadOnlyList<Ilm.Modules.ReadOnly.PermittedAction>
+<table class="grid compact">
+    <thead><tr><th>Action</th><th>Available</th><th>Why</th></tr></thead>
+    <tbody>
+    @foreach (var a in Model)
+    {
+        <tr><td>@a.Name</td><td>@(a.Available ? "Yes" : "No")</td><td>@a.Reason</td></tr>
+    }
+    </tbody>
+</table>

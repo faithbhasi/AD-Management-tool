@@ -1,0 +1,27 @@
+@page
+@model Ilm.Web.Pages.Audit.IndexModel
+@{ ViewData["Title"] = "Audit"; }
+<h1>Audit</h1>
+<p class="muted">Append-only records, hash-chained and MAC'd with a key held outside the database, forwarded off-box. Values are sanitised; secrets and passwords are never recorded.</p>
+<form method="get" class="card">
+    <label>Action contains</label><input type="text" name="ActionFilter" value="@Model.ActionFilter" />
+    <label>Operation ID (timeline)</label><input type="text" name="OperationId" value="@Model.OperationId" />
+    <label>Actor subject</label><input type="text" name="Subject" value="@Model.Subject" />
+    <label>Target contains</label><input type="text" name="Target" value="@Model.Target" />
+    <label>From / to (UTC)</label><input type="datetime-local" name="From" value="@Model.From?.ToString("yyyy-MM-ddTHH:mm")" /> <input type="datetime-local" name="To" value="@Model.To?.ToString("yyyy-MM-ddTHH:mm")" />
+    <p><button type="submit">Filter</button>
+    @if (Model.Can(Permission.ExportAudit)) { <a class="btn secondary" href="/Audit?handler=Export&ActionFilter=@Model.ActionFilter&OperationId=@Model.OperationId&Subject=@Model.Subject&Target=@Model.Target">Export CSV (formula-neutralised)</a> }</p>
+</form>
+<form method="post" asp-page-handler="Verify"><button type="submit" class="secondary">Verify the whole chain against the off-box copy</button></form>
+@if (Model.Verification is not null)
+{
+    <div class="banner @(Model.Verification.IsValid ? "ok" : "error")">@(Model.Verification.IsValid ? $"Chain valid: {Model.Verification.RecordsChecked} records verified." : $"Chain BROKEN at #{Model.Verification.FirstBrokenSequence}")
+    <ul>@foreach (var p in Model.Verification.Problems.Take(20)) { <li>@p</li> }</ul></div>
+}
+<table class="grid compact"><thead><tr><th>#</th><th>Time</th><th>Action</th><th>Result</th><th>Actor</th><th>Roles</th><th>Target</th><th>State</th><th>Operation</th><th>Hash</th></tr></thead><tbody>
+@foreach (var r in Model.Records)
+{
+    <tr><td>@r.Sequence</td><td>@r.TimestampUtc.ToString("u")</td><td>@r.Action</td><td>@r.Result</td><td>@r.ActorSubject</td><td><small>@r.EffectiveRoles</small></td><td><small>@r.TargetStableId</small></td><td>@r.WorkflowState</td>
+    <td>@if (r.OperationId is not null) { <a href="/Audit?OperationId=@r.OperationId">@r.OperationId.ToString()![..8]</a> }</td><td><small>@r.Hash[..12]</small></td></tr>
+}
+</tbody></table>

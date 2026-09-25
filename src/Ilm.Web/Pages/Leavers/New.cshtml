@@ -1,0 +1,32 @@
+@page
+@model Ilm.Web.Pages.Leavers.NewModel
+@{ ViewData["Title"] = "New leaver"; }
+<h1>Leaver containment for @Model.Person.DisplayName</h1>
+<div class="card">
+<form method="post">
+    <input type="hidden" name="personId" value="@Model.Person.Id" />
+    <input type="hidden" asp-for="IdempotencyKey" />
+    <label asp-for="Reason">Reason</label><input type="text" asp-for="Reason" size="80" required />
+    <label asp-for="TicketReference">Ticket reference</label><input type="text" asp-for="TicketReference" placeholder="CHG-12345" required />
+    <label asp-for="Urgency">Urgency</label><select asp-for="Urgency" asp-items="Html.GetEnumSelectList<Ilm.Domain.Leaver.LeaverUrgency>()"></select>
+    <label asp-for="EffectiveUtc">Effective (UTC; empty = now)</label><input type="datetime-local" asp-for="EffectiveUtc" />
+    <p><button type="submit">Request leaver</button></p>
+    <p class="muted">Requesting does not change anything. A second person must approve the plan below before containment can start.</p>
+</form>
+</div>
+@if (Model.Preview is not null)
+{
+    <h2>Containment plan preview (requires @Model.Preview.RequiredApprovalRole approval)</h2>
+    <table class="grid"><thead><tr><th>Step</th><th>Method</th><th>System</th><th>Target</th><th>Mandatory</th><th>Protection</th><th>Manual reason</th></tr></thead><tbody>
+    @foreach (var a in Model.Preview.Actions)
+    {
+        <tr><td>@a.Step</td><td>@(a.Skipped ? "Skipped (no identity)" : a.Method.ToString())</td><td>@a.System @a.SessionSystem</td><td>@a.TargetLabel</td><td>@(a.Mandatory ? "Yes" : "Best effort")</td><td>@a.ProtectionDecision</td><td>@a.ManualReason</td></tr>
+    }
+    </tbody></table>
+    @if (Model.Preview.UnresolvedLinks.Count > 0)
+    {
+        <div class="banner warn">Unresolved identity links (must be confirmed or rejected before SafelyContained):
+            <ul>@foreach (var u in Model.Preview.UnresolvedLinks) { <li>@u.Label: @u.Confidence (@u.Evidence)</li> }</ul></div>
+    }
+    @foreach (var n in Model.Preview.Notes) { <p class="muted">@n</p> }
+}

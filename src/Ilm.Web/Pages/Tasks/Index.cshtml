@@ -1,0 +1,11 @@
+@page
+@model Ilm.Web.Pages.Tasks.IndexModel
+@{ ViewData["Title"] = "Manual tasks"; }
+<h1>Manual tasks</h1>
+<p><a href="/Tasks?openOnly=@(!Model.OpenOnly)">@(Model.OpenOnly ? "Show all" : "Show open only")</a></p>
+<table class="grid"><thead><tr><th>Severity</th><th>Kind</th><th>Title</th><th>Status</th><th>Assigned role</th><th>SLA due</th><th>Leaver</th></tr></thead><tbody>
+@foreach (var t in Model.Items)
+{
+    <tr><td>@t.Severity</td><td>@t.Kind</td><td><a href="/Tasks/Details/@t.Id">@t.Title</a></td><td>@t.Status</td><td>@t.AssignedRole</td><td>@t.SlaDueUtc?.ToString("u") @(t.SlaBreached ? "BREACHED" : "")</td><td>@if (t.LeaverRequestId is not null) { <a href="/Leavers/Details/@t.LeaverRequestId">open</a> }</td></tr>
+}
+</tbody></table>
