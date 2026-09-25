@@ -75,6 +75,36 @@ public sealed class ConfigurationWorkflowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Scopes_on_a_newly_added_connector_are_verified_against_that_directory()
+    {
+        var casey = await host.ActorAsync(Operators.Casey);
+        var doc = await Active();
+        doc.Connectors.Add(new DirectoryConnectorDefinition
+        {
+            Id = "legacy-c",
+            DisplayName = "Legacy forest C (legacy-c.example.test)",
+            ForestDnsName = "legacy-c.example.test",
+            DomainDnsName = "legacy-c.example.test",
+            Role = ForestRole.Legacy,
+            Mode = ConnectorMode.ReadOnlyLegacy,
+            Implementation = "Mock",
+            DomainControllers = ["lgcdc01.legacy-c.example.test"],
+        });
+        doc.Scopes.Add(new ScopeDefinition { Id = "legacy-c-staff", ConnectorId = "legacy-c", OuObjectGuid = FictionalIds.For("legacy-c:ou:missing").ToString("D"), DisplayName = "missing" });
+        var proposed = await Propose(doc, casey);
+        Assert.Equal(ConfigurationVersionStatus.ValidationFailed, proposed.Status);
+        Assert.Matches("SCOPE_UNRESOLVED|SCOPE_UNVERIFIABLE", proposed.ValidationIssuesJson);
+    }
+
+    [Fact]
+    public async Task Bootstrap_only_creates_the_first_version_and_needs_a_source_reference()
+    {
+        var doc = await Active();
+        await Assert.ThrowsAsync<DomainException>(() => host.WithAsync<ConfigurationService, bool>(s => s.BootstrapAsync(doc, " ", CancellationToken.None)));
+        Assert.False(await host.WithAsync<ConfigurationService, bool>(s => s.BootstrapAsync(doc, "change CHG-1", CancellationToken.None)));
+    }
+
+    [Fact]
     public async Task Legacy_write_activation_and_okta_provisioning_are_rejected()
     {
         var casey = await host.ActorAsync(Operators.Casey);

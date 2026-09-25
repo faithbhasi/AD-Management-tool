@@ -90,7 +90,7 @@ flowchart LR
 |---|---|
 | Plaintext DB traffic | Production refuses to start unless the connection string requires TLS with full verification. | 
 | App identity altering the schema or history | Separate roles: `ilm_migrator` owns the schema, while `ilm_app` has DML only, and on audit tables only INSERT and SELECT. A trigger blocks UPDATE, DELETE and TRUNCATE on the audit table. Tested against PostgreSQL. |
-| **DBA rewrites audit history** | Each record is hash-chained and HMAC'd with a key held outside the database. Every record is forwarded to an append-only sink, and chain-head anchors are forwarded periodically. The verifier detects breaks, re-hashes, bad MACs and divergence from the sink. A DBA can delete or alter rows, but not without detection. |
+| **DBA rewrites audit history** | Each record is hash-chained and HMAC'd with a key held outside the database. Every sealed record, with its hash and MAC, is forwarded to an append-only sink, and the forwarding checkpoint records the last forwarded hash. The verifier detects breaks, re-hashes, bad MACs and divergence from the sink. A DBA can delete or alter rows, but not without detection. |
 | DBA reads personal data | Encryption at rest protects the media, not a DBA session. PostgreSQL logs DBA access (`log_connections`, `pgaudit` recommended). The DBA role holds no ILM lifecycle role. Residual risk R4. |
 | **Backups leak or are restored to roll back history** | Encrypted backups with keys held apart from the DBA team. Restore tests run the audit verifier and compare it with the SIEM copy. A rollback shows up as a missing tail relative to the sink. See [`DATABASE-SECURITY.md`](DATABASE-SECURITY.md). |
 
@@ -110,7 +110,7 @@ flowchart LR
 
 | Threat | Mitigation |
 |---|---|
-| Forwarder silently stops | Its checkpoint lag is exposed as a health check. Lag beyond the threshold makes the service Degraded and raises an alert. |
+| Forwarder silently stops | Its checkpoint lag is exposed as a health check. Lag beyond `Ilm:Audit:MaxForwardingLag` makes the service Degraded, and the worker raises a High `AuditForwardingLag` alert. |
 | Sink tampering | The sink is append-only and outside the DBA's control. Records carry their own hash and MAC. |
 
 ## 5. Abuse cases

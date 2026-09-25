@@ -14,7 +14,7 @@ public sealed class DevelopmentSeeder(IIlmDbContext db, ConfigurationService con
 {
     public async Task SeedAsync(CancellationToken cancellationToken)
     {
-        await configuration.BootstrapAsync(Bootstrap(), cancellationToken);
+        await configuration.BootstrapAsync(Bootstrap(), "fictional development configuration", cancellationToken);
         if (await db.Persons.AnyAsync(cancellationToken))
         {
             return;

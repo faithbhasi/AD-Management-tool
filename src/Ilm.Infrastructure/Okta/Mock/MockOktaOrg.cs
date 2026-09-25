@@ -90,6 +90,8 @@ public sealed class MockOktaOrg :
 
     public bool FailSessionRevocation { get; set; }
 
+    public bool IsSimulated => true;
+
     public bool CanSimulateAgentOutage => true;
 
     public void SetAgentAvailable(bool available)

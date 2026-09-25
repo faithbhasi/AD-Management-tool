@@ -24,9 +24,19 @@ public sealed class AppUserService(IIlmDbContext db, IAuditWriter audit, TimePro
         var now = time.GetUtcNow().UtcDateTime;
         var user = await db.AppUsers.FirstOrDefaultAsync(u => u.Issuer == issuer && u.Subject == subject, cancellationToken);
         var created = false;
+        var issuerChanged = false;
         if (user is null)
         {
-            user = new AppUser { Issuer = issuer, Subject = subject, CreatedUtc = now };
+            // The same subject active under another issuer means the issuer changed. That is an identity migration,
+            // not a new operator: the new identity holds no roles until the migration is approved and applied.
+            issuerChanged = await db.AppUsers.AnyAsync(u => u.Subject == subject && u.Issuer != issuer && u.Status == AppUserStatus.Active, cancellationToken);
+            user = new AppUser
+            {
+                Issuer = issuer,
+                Subject = subject,
+                CreatedUtc = now,
+                Status = issuerChanged ? AppUserStatus.PendingIssuerMigration : AppUserStatus.Active,
+            };
             db.AppUsers.Add(user);
             created = true;
         }
@@ -43,13 +53,63 @@ public sealed class AppUserService(IIlmDbContext db, IAuditWriter audit, TimePro
         var actor = new ActorContext { AppUserId = user.Id, Issuer = issuer, Subject = subject, DisplayName = user.DisplayName };
         audit.Append(new AuditEvent
         {
-            Action = created ? "OperatorFirstSignIn" : "OperatorSignIn",
-            Result = "Succeeded",
+            Action = issuerChanged ? "OperatorIssuerChangeDetected" : created ? "OperatorFirstSignIn" : "OperatorSignIn",
+            Result = issuerChanged ? "PendingIssuerMigration" : "Succeeded",
             TargetStableId = $"{issuer}|{subject}",
         }, actor);
 
         await db.SaveChangesAsync(cancellationToken);
         return user;
+    }
+
+    /// <summary>
+    /// Returns why an operator identity may hold no roles, or null when roles may be resolved. Unknown, migrated,
+    /// disabled and pending-migration identities get no roles.
+    /// </summary>
+    public async Task<string?> RoleBlockerAsync(string issuer, string subject, CancellationToken cancellationToken)
+    {
+        var status = await db.AppUsers.AsNoTracking()
+            .Where(u => u.Issuer == issuer && u.Subject == subject)
+            .Select(u => (AppUserStatus?)u.Status)
+            .FirstOrDefaultAsync(cancellationToken);
+        return status switch
+        {
+            null => "Unknown operator identity.",
+            AppUserStatus.Active => null,
+            AppUserStatus.PendingIssuerMigration => "This identity uses a new issuer. It holds no roles until a Security Approver approves the issuer migration.",
+            AppUserStatus.Migrated => "This identity was migrated to a new issuer.",
+            _ => "This operator account is disabled in ILM.",
+        };
+    }
+
+    /// <summary>
+    /// True when two application users are the same person: identical, or joined by an applied issuer migration
+    /// in either direction. Separation-of-duties checks use this, so an issuer change cannot be used to approve one's own request.
+    /// </summary>
+    public static async Task<bool> IsSamePersonAsync(IIlmDbContext db, Guid first, Guid second, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        if (first == second)
+        {
+            return true;
+        }
+
+        return await Reaches(first, second) || await Reaches(second, first);
+
+        async Task<bool> Reaches(Guid from, Guid to)
+        {
+            Guid? current = from;
+            for (var hop = 0; hop < 16 && current is { } id; hop++)
+            {
+                current = await db.AppUsers.AsNoTracking().Where(u => u.Id == id).Select(u => u.MigratedToUserId).FirstOrDefaultAsync(cancellationToken);
+                if (current == to)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }
 
@@ -113,6 +173,11 @@ public sealed class IssuerMigrationService(IIlmDbContext db, ApprovalService app
 
         from.Status = AppUserStatus.Migrated;
         from.MigratedToUserId = to.Id;
+        if (to.Status == AppUserStatus.PendingIssuerMigration)
+        {
+            to.Status = AppUserStatus.Active;
+        }
+
         migration.Applied = true;
         migration.AppliedUtc = time.GetUtcNow().UtcDateTime;
         audit.Append(new AuditEvent

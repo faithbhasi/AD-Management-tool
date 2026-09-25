@@ -277,6 +277,80 @@ public sealed class LeaverScenarioTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Provisional_link_approved_after_approval_becomes_a_verified_manual_containment()
+    {
+        var request = await Run("Harper Synthetic", adrian);
+        Assert.Equal(LeaverState.ManualContainmentRequired, request.State);
+        var legacyWrites = host.Directory.Forest(FictionalIds.LegacyBConnector).WriteCount;
+
+        await using (var scope = host.Scope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IIlmDbContext>();
+            var link = await db.IdentityLinks.FirstAsync(l => l.Confidence == Domain.Identity.LinkConfidence.Provisional);
+            await scope.ServiceProvider.GetRequiredService<Application.Identity.IdentityLinkService>().ApproveAsync(link.Id, adrian, CancellationToken.None);
+        }
+
+        // The approved plan did not include the account: ILM adds a manual task for it and never writes to it itself.
+        var afterApproval = (await Reverify(request.Id)).Request;
+        Assert.Equal(LeaverState.ManualContainmentRequired, afterApproval.State);
+        var late = Assert.Single(afterApproval.Actions, a => a.IdempotencyKey.Contains(":late:", StringComparison.Ordinal));
+        Assert.Equal(ContainmentMethod.ManualControlled, late.Method);
+        var task = Assert.Single(await Tasks(request.Id), t => t.ContainmentActionId == late.Id);
+        Assert.Equal(ManualTaskKind.ManualContainment, task.Kind);
+        Assert.Equal(legacyWrites, host.Directory.Forest(FictionalIds.LegacyBConnector).WriteCount);
+
+        // Recording the task is not enough: ILM reads the directory, and the account is still enabled.
+        var recorded = await host.WithAsync<LeaverWorkflowService, LeaverOperationResult>(w => w.RecordManualTaskAsync(task.Id, "Disabled from the legacy console (CHG-10009)", olivia, CancellationToken.None));
+        Assert.NotEqual(LeaverState.SafelyContained, recorded.Request.State);
+
+        // The operator's change becomes visible in the directory; verification now passes.
+        host.Directory.Forest(FictionalIds.LegacyBConnector).Objects[FictionalIds.For($"{FictionalIds.LegacyBConnector}:user:hsynthetic")].UserAccountControl |= 2;
+        Assert.Equal(LeaverState.SafelyContained, (await Reverify(request.Id)).Request.State);
+    }
+
+    [Fact]
+    public async Task Account_without_a_link_record_blocks_safely_contained_until_resolved()
+    {
+        Guid orphanId;
+        await using (var scope = host.Scope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<IIlmDbContext>();
+            var person = await db.Persons.FirstAsync(p => p.DisplayName == "Finley Demo");
+            var orphan = new Domain.Identity.ExternalIdentity
+            {
+                PersonId = person.Id,
+                System = SystemKind.ActiveDirectory,
+                ForestOrTenantId = "legacy-b.example.test",
+                ConnectorId = FictionalIds.LegacyBConnector,
+                StableObjectId = FictionalIds.For("orphan-account").ToString("D"),
+                ObjectGuid = FictionalIds.For("orphan-account"),
+                SamAccountName = "fdemo-old",
+                Population = "legacy-b",
+            };
+            db.ExternalIdentities.Add(orphan);
+            await db.SaveChangesAsync();
+            orphanId = orphan.Id;
+        }
+
+        var request = await Run("Finley Demo", adrian);
+        Assert.Equal(LeaverState.ManualContainmentRequired, request.State);
+        var task = Assert.Single(await Tasks(request.Id), t => t.Kind == ManualTaskKind.IdentityLinkConfirmation);
+        Assert.Contains("no link record", task.RunbookMarkdown, StringComparison.Ordinal);
+
+        await using (var scope = host.Scope())
+        {
+            var links = scope.ServiceProvider.GetRequiredService<Application.Identity.IdentityLinkService>();
+            var personId = await host.PersonIdAsync("Finley Demo");
+            var link = await links.ProposeAsync(personId, orphanId, Domain.Identity.EvidenceType.EmailAttribute, Domain.Identity.LinkMethod.EmailMatch, "CHG-10010", 1, olivia, CancellationToken.None);
+            Assert.Equal(Domain.Identity.LinkConfidence.Provisional, link.Confidence);
+            Assert.Equal(LeaverState.ManualContainmentRequired, (await Reverify(request.Id)).Request.State);
+            await links.RejectAsync(link.Id, "Belongs to someone else", adrian, CancellationToken.None);
+        }
+
+        Assert.Equal(LeaverState.SafelyContained, (await Reverify(request.Id)).Request.State);
+    }
+
+    [Fact]
     public async Task Repeated_idempotency_key_returns_the_same_request_and_conflicting_payload_is_refused()
     {
         var first = await Create("Alex Example", "same-key");

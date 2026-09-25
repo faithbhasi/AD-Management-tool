@@ -8,8 +8,14 @@ public sealed class FeasibilityReportTests
     private static FeasibilityRunResult Result(bool mock, Func<int, CheckOutcome> outcome, params string[] conditions) => new(
         new FeasibilityOptions
         {
-            Environment = "PCATEST", OktaOrg = "https://pcatest.okta.example.test", AdIntegration = "AD", AssignmentMechanism = "Group",
-            AssignmentId = "00gAdPushTarget00001", TargetConnectorId = "corp", SyntheticLoginPrefix = "ilmfeas-", SyntheticEmailDomain = "example.test",
+            Environment = "PCATEST",
+            OktaOrg = "https://pcatest.okta.example.test",
+            AdIntegration = "AD",
+            AssignmentMechanism = "Group",
+            AssignmentId = "00gAdPushTarget00001",
+            TargetConnectorId = "corp",
+            SyntheticLoginPrefix = "ilmfeas-",
+            SyntheticEmailDomain = "example.test",
         },
         mock,
         DateTime.UtcNow,

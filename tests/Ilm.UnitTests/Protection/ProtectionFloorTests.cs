@@ -21,21 +21,21 @@ public sealed class ProtectionFloorTests
 
     private static DirectoryObjectFacts Facts(string? sid = null, int? adminCount = 0, int uac = 512, IReadOnlyCollection<string>? groups = null,
         bool complete = true, bool membershipComplete = true, string[]? classes = null, string? sam = "user1", string? dns = null, int primaryGroup = 513) => new()
-    {
-        ConnectorId = "corp",
-        ForestId = "corp.example.test",
-        ObjectGuid = Guid.NewGuid(),
-        ObjectSid = sid ?? Domain + "-5001",
-        SamAccountName = sam,
-        DnsHostName = dns,
-        ObjectClasses = classes ?? ["top", "person", "user"],
-        UserAccountControl = uac,
-        AdminCount = adminCount,
-        PrimaryGroupId = primaryGroup,
-        AttributesComplete = complete,
-        TransitiveGroupSids = groups ?? [],
-        MembershipComplete = membershipComplete,
-    };
+        {
+            ConnectorId = "corp",
+            ForestId = "corp.example.test",
+            ObjectGuid = Guid.NewGuid(),
+            ObjectSid = sid ?? Domain + "-5001",
+            SamAccountName = sam,
+            DnsHostName = dns,
+            ObjectClasses = classes ?? ["top", "person", "user"],
+            UserAccountControl = uac,
+            AdminCount = adminCount,
+            PrimaryGroupId = primaryGroup,
+            AttributesComplete = complete,
+            TransitiveGroupSids = groups ?? [],
+            MembershipComplete = membershipComplete,
+        };
 
     public static TheoryData<string> FloorSids() => new()
     {

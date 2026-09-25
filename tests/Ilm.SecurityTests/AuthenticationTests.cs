@@ -54,8 +54,18 @@ public sealed class AuthenticationTests : IDisposable
         var sp = scope.ServiceProvider;
         var users = sp.GetRequiredService<AppUserService>();
         var old = await users.SignInAsync(IlmWebFactory.Issuer, "00uIssuerMove0000001", "Robin", "robin@example.test", CancellationToken.None);
-        var moved = await users.SignInAsync("https://okta.example.test/oauth2/aus000000000000000001", "00uIssuerMove0000001", "Robin", "robin@example.test", CancellationToken.None);
+        const string newIssuer = "https://okta.example.test/oauth2/aus000000000000000001";
+
+        // Before the issuer change, Robin raises a request that needs a Security Approver.
+        var oldRobin = new ActorContext { AppUserId = old.Id, Issuer = IlmWebFactory.Issuer, Subject = "00uIssuerMove0000001", DisplayName = "Robin" };
+        var approvals = sp.GetRequiredService<ApprovalService>();
+        var robinsRequest = approvals.Create(ApprovalSubjectType.ConfigurationVersion, "cfg-robin", "Robin's proposal", Domain.Security.AppRole.SecurityApprover, oldRobin, "hash-robin", TimeSpan.FromHours(4), 1);
+
+        var moved = await users.SignInAsync(newIssuer, "00uIssuerMove0000001", "Robin", "robin@example.test", CancellationToken.None);
         Assert.NotEqual(old.Id, moved.Id);
+        Assert.Equal(Domain.Security.AppUserStatus.PendingIssuerMigration, moved.Status);
+        Assert.NotNull(await users.RoleBlockerAsync(newIssuer, "00uIssuerMove0000001", CancellationToken.None));
+        Assert.Null(await users.RoleBlockerAsync(IlmWebFactory.Issuer, "00uIssuerMove0000001", CancellationToken.None));
 
         var casey = await users.SignInAsync(IlmWebFactory.Issuer, FictionalIds.ConfigCasey, "Casey Config", null, CancellationToken.None);
         var requester = new ActorContext { AppUserId = casey.Id, Issuer = IlmWebFactory.Issuer, Subject = FictionalIds.ConfigCasey, DisplayName = "Casey" };
@@ -66,7 +76,11 @@ public sealed class AuthenticationTests : IDisposable
         var sasha = await users.SignInAsync(IlmWebFactory.Issuer, FictionalIds.SecuritySasha, "Sasha", null, CancellationToken.None);
         var approver = new ActorContext
         {
-            AppUserId = sasha.Id, Issuer = IlmWebFactory.Issuer, Subject = FictionalIds.SecuritySasha, DisplayName = "Sasha", RolesFreshlyResolved = true,
+            AppUserId = sasha.Id,
+            Issuer = IlmWebFactory.Issuer,
+            Subject = FictionalIds.SecuritySasha,
+            DisplayName = "Sasha",
+            RolesFreshlyResolved = true,
             Roles = new Dictionary<Domain.Security.AppRole, IReadOnlyCollection<string>> { [Domain.Security.AppRole.SecurityApprover] = [] },
         };
         var db = sp.GetRequiredService<IIlmDbContext>();
@@ -74,7 +88,24 @@ public sealed class AuthenticationTests : IDisposable
         await sp.GetRequiredService<ApprovalService>().DecideAsync(approval.Id, true, null, approver, approval.ContentHash, CancellationToken.None);
         await db.SaveChangesAsync();
         await migrations.ApplyAsync(migration.Id, approver, CancellationToken.None);
+        await db.SaveChangesAsync();
         Assert.Equal(Domain.Security.AppUserStatus.Migrated, (await db.AppUsers.SingleAsync(u => u.Id == old.Id)).Status);
+        Assert.Equal(Domain.Security.AppUserStatus.Active, (await db.AppUsers.SingleAsync(u => u.Id == moved.Id)).Status);
+        Assert.Null(await users.RoleBlockerAsync(newIssuer, "00uIssuerMove0000001", CancellationToken.None));
+        Assert.NotNull(await users.RoleBlockerAsync(IlmWebFactory.Issuer, "00uIssuerMove0000001", CancellationToken.None));
+
+        // Under the new issuer Robin is still the same person, so Robin cannot approve Robin's own earlier request.
+        var newRobin = new ActorContext
+        {
+            AppUserId = moved.Id,
+            Issuer = newIssuer,
+            Subject = "00uIssuerMove0000001",
+            DisplayName = "Robin",
+            RolesFreshlyResolved = true,
+            Roles = new Dictionary<Domain.Security.AppRole, IReadOnlyCollection<string>> { [Domain.Security.AppRole.SecurityApprover] = [] },
+        };
+        var denied = await Assert.ThrowsAsync<DomainException>(() => approvals.DecideAsync(robinsRequest.Id, true, null, newRobin, "hash-robin", CancellationToken.None));
+        Assert.Equal(SafeErrorCategory.NotAuthorised, denied.Category);
     }
 
     [Fact]
@@ -88,7 +119,9 @@ public sealed class AuthenticationTests : IDisposable
         var handler = new JsonWebTokenHandler();
         string Token(string issuer, string audience, SecurityKey key) => handler.CreateToken(new SecurityTokenDescriptor
         {
-            Issuer = issuer, Audience = audience, Expires = DateTime.UtcNow.AddMinutes(5),
+            Issuer = issuer,
+            Audience = audience,
+            Expires = DateTime.UtcNow.AddMinutes(5),
             Claims = new Dictionary<string, object> { ["sub"] = FictionalIds.OperatorOlivia },
             SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.RsaSha256),
         });
@@ -168,15 +201,23 @@ public sealed class AuthenticationTests : IDisposable
         var provider = factory.Services.GetRequiredService<MockOidcProvider>();
         var (redirect, error) = provider.Authorize(new Dictionary<string, string>
         {
-            ["client_id"] = "ilm-portal-test", ["redirect_uri"] = "https://localhost/signin-oidc", ["response_type"] = "code",
-            ["code_challenge"] = Base64UrlEncoder.Encode(System.Security.Cryptography.SHA256.HashData("right-verifier"u8.ToArray())), ["code_challenge_method"] = "S256", ["state"] = "s",
+            ["client_id"] = "ilm-portal-test",
+            ["redirect_uri"] = "https://localhost/signin-oidc",
+            ["response_type"] = "code",
+            ["code_challenge"] = Base64UrlEncoder.Encode(System.Security.Cryptography.SHA256.HashData("right-verifier"u8.ToArray())),
+            ["code_challenge_method"] = "S256",
+            ["state"] = "s",
         }, FictionalIds.OperatorOlivia);
         Assert.Null(error);
         var code = System.Web.HttpUtility.ParseQueryString(new Uri(redirect!).Query)["code"]!;
         var (json, tokenError) = provider.Token(new Dictionary<string, string>
         {
-            ["grant_type"] = "authorization_code", ["code"] = code, ["redirect_uri"] = "https://localhost/signin-oidc",
-            ["client_id"] = "ilm-portal-test", ["client_secret"] = provider.ClientSecret, ["code_verifier"] = "wrong-verifier",
+            ["grant_type"] = "authorization_code",
+            ["code"] = code,
+            ["redirect_uri"] = "https://localhost/signin-oidc",
+            ["client_id"] = "ilm-portal-test",
+            ["client_secret"] = provider.ClientSecret,
+            ["code_verifier"] = "wrong-verifier",
         }, null);
         Assert.Null(json);
         Assert.Equal("invalid_grant", tokenError);
@@ -197,7 +238,10 @@ public sealed class AuthenticationTests : IDisposable
         var id = System.Text.RegularExpressions.Regex.Match(person, "/People/Details/([0-9a-f-]{36})").Groups[1].Value;
         var created = await IlmWebFactory.PostFormAsync(olivia, $"/Leavers/New?personId={id}", $"/Leavers/New?personId={id}", new()
         {
-            ["Reason"] = "Security test", ["TicketReference"] = "CHG-30001", ["Urgency"] = "Urgent", ["IdempotencyKey"] = Guid.NewGuid().ToString("N"),
+            ["Reason"] = "Security test",
+            ["TicketReference"] = "CHG-30001",
+            ["Urgency"] = "Urgent",
+            ["IdempotencyKey"] = Guid.NewGuid().ToString("N"),
         });
         var leaverUrl = created.Headers.Location!.ToString();
         var attempt = await IlmWebFactory.PostFormAsync(olivia, leaverUrl, leaverUrl + "?handler=Approve", new() { ["comment"] = "self" });

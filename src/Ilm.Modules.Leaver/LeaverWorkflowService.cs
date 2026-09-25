@@ -421,6 +421,7 @@ public sealed partial class LeaverWorkflowService(
     private async Task EvaluateAsync(LeaverRequest request, LeaverPlan plan, ActorContext actor, CancellationToken cancellationToken)
     {
         var config = await configuration.GetAsync(cancellationToken);
+        await ContainLateConfirmedAccountsAsync(request, plan, actor, cancellationToken);
         var unresolvedLinks = await CountUnresolvedLinksAsync(request, plan, cancellationToken);
         var assessment = SafelyContainedEvaluator.Evaluate(config.Document.LifecyclePolicies.SafelyContained, request.Actions, unresolvedLinks);
         if (assessment.IsSafelyContained)
@@ -474,31 +475,89 @@ public sealed partial class LeaverWorkflowService(
         }
     }
 
-    private async Task<int> CountUnresolvedLinksAsync(LeaverRequest request, LeaverPlan plan, CancellationToken cancellationToken)
+    private enum LinkResolution
     {
-        if (plan.UnresolvedLinks.Count == 0)
+        Unconfirmed,
+        Confirmed,
+        Rejected,
+    }
+
+    /// <summary>Current state of the links to one account: any effective approved link confirms it; only rejected links reject it.</summary>
+    private async Task<LinkResolution> ResolveLinksAsync(Guid identityId, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow().UtcDateTime;
+        var links = await db.IdentityLinks.AsNoTracking().Where(l => l.TargetIdentityId == identityId).ToListAsync(cancellationToken);
+        if (links.Any(l => l.IsEffective(now) && IdentityLinkPolicy.IsContainmentEligible(l.Confidence)))
         {
-            return 0;
+            return LinkResolution.Confirmed;
         }
 
-        var ids = plan.UnresolvedLinks.Select(u => u.LinkId).ToList();
-        var links = await db.IdentityLinks.AsNoTracking().Where(l => ids.Contains(l.Id)).ToListAsync(cancellationToken);
-        var stillUnresolved = 0;
-        foreach (var link in links)
+        return links.Count > 0 && links.All(l => l.Confidence == LinkConfidence.Rejected) ? LinkResolution.Rejected : LinkResolution.Unconfirmed;
+    }
+
+    /// <summary>
+    /// Adds a manual containment action for each account whose link was confirmed after approval. The approved plan
+    /// did not cover it, so ILM does not write to it automatically; the manual result is verified like any other.
+    /// </summary>
+    private async Task ContainLateConfirmedAccountsAsync(LeaverRequest request, LeaverPlan plan, ActorContext actor, CancellationToken cancellationToken)
+    {
+        foreach (var identityId in plan.UnresolvedLinks.Select(u => u.IdentityId).Distinct())
         {
-            if (link.Confidence == LinkConfidence.Rejected)
+            if (request.Actions.Any(a => a.TargetIdentityId == identityId))
             {
                 continue;
             }
 
-            if (!IdentityLinkPolicy.IsContainmentEligible(link.Confidence))
+            var identity = await db.ExternalIdentities.AsNoTracking().FirstOrDefaultAsync(i => i.Id == identityId, cancellationToken);
+            if (identity?.System is not (SystemKind.ActiveDirectory or SystemKind.Okta)
+                || await ResolveLinksAsync(identityId, cancellationToken) != LinkResolution.Confirmed)
             {
-                stillUnresolved++;
                 continue;
             }
 
-            // Newly confirmed: contained only once an action for it exists and is verified.
-            var action = request.Actions.FirstOrDefault(a => a.TargetIdentityId == link.TargetIdentityId);
+            var planned = await planner.PlanLateConfirmedAsync(identity, cancellationToken);
+            var action = ToAction(request, planned, request.Actions.Count == 0 ? 1 : request.Actions.Max(a => a.Sequence) + 1, "late");
+            request.Actions.Add(action);
+            db.ContainmentActions.Add(action);
+            audit.Append(new AuditEvent
+            {
+                Action = "LeaverLateConfirmedAccountAdded",
+                OperationId = request.Id,
+                CorrelationId = request.CorrelationId,
+                IdempotencyKey = action.IdempotencyKey,
+                TargetStableId = planned.TargetStableId,
+                ProtectionDecision = planned.ProtectionDecision,
+                AuthorityDecision = planned.AuthorityDecision,
+                WorkflowState = request.State.ToString(),
+                Result = "ManualActionRequired",
+            }, actor);
+            await executor.EscalateToManualAsync(request, action, planned.ManualReason!, actor, cancellationToken);
+        }
+    }
+
+    private async Task<int> CountUnresolvedLinksAsync(LeaverRequest request, LeaverPlan plan, CancellationToken cancellationToken)
+    {
+        var stillUnresolved = 0;
+        foreach (var identityId in plan.UnresolvedLinks.Select(u => u.IdentityId).Distinct())
+        {
+            switch (await ResolveLinksAsync(identityId, cancellationToken))
+            {
+                case LinkResolution.Rejected:
+                    continue;
+                case LinkResolution.Unconfirmed:
+                    stillUnresolved++;
+                    continue;
+            }
+
+            // Newly confirmed: contained only once its action is verified. Accounts in systems the planner does not
+            // contain directly (neither Okta nor AD) are covered by the session controls, as in the original plan.
+            var system = await db.ExternalIdentities.AsNoTracking().Where(i => i.Id == identityId).Select(i => (SystemKind?)i.System).FirstOrDefaultAsync(cancellationToken);
+            if (system is not (SystemKind.ActiveDirectory or SystemKind.Okta))
+            {
+                continue;
+            }
+
+            var action = request.Actions.FirstOrDefault(a => a.TargetIdentityId == identityId);
             if (action is null || action.Status != ContainmentActionStatus.Verified)
             {
                 stillUnresolved++;
@@ -510,18 +569,26 @@ public sealed partial class LeaverWorkflowService(
 
     private async Task EnsureLinkConfirmationTasksAsync(LeaverRequest request, LeaverPlan plan, ActorContext actor, CancellationToken cancellationToken)
     {
-        foreach (var u in plan.UnresolvedLinks)
+        foreach (var u in plan.UnresolvedLinks.DistinctBy(u => u.IdentityId))
         {
-            var exists = await db.ManualTasks.AnyAsync(t => t.LeaverRequestId == request.Id && t.Kind == ManualTaskKind.IdentityLinkConfirmation && t.TargetsJson.Contains(u.LinkId.ToString()), cancellationToken);
+            if (await ResolveLinksAsync(u.IdentityId, cancellationToken) != LinkResolution.Unconfirmed)
+            {
+                continue;
+            }
+
+            var exists = await db.ManualTasks.AnyAsync(t => t.LeaverRequestId == request.Id && t.Kind == ManualTaskKind.IdentityLinkConfirmation && t.TargetsJson.Contains(u.IdentityId.ToString()), cancellationToken);
             if (exists)
             {
                 continue;
             }
 
+            var evidence = u.LinkId == Guid.Empty
+                ? $"The account **{u.Label}** is associated with this leaver but has **no link record**."
+                : $"The account **{u.Label}** is linked to this leaver only by **{u.Evidence}** evidence ({u.Confidence}).";
             manualTasks.Create(ManualTaskKind.IdentityLinkConfirmation, AlertSeverity.High, $"Confirm or reject link: {u.Label}",
-                $"The account **{u.Label}** is linked to this leaver only by **{u.Evidence}** evidence ({u.Confidence}).\n\n" +
+                evidence + "\n\n" +
                 "1. Establish whether it belongs to the leaver (ticket, HR, line manager).\n" +
-                "2. If it does, approve the link (a second person) and contain it; if it does not, reject the link.\n" +
+                "2. If it does, approve the link (a second person). ILM then adds a manual containment task for the account and verifies it; if it does not, reject the link.\n" +
                 "3. The leaver cannot be SafelyContained until this is resolved.",
                 new { linkId = u.LinkId, identityId = u.IdentityId }, TimeSpan.FromHours(4), nameof(AppRole.LifecycleApprover), false, request.Id, null, actor);
         }
@@ -564,10 +631,17 @@ public sealed partial class LeaverWorkflowService(
         var sequence = 0;
         foreach (var p in plan.Actions)
         {
-            var action = new ContainmentAction
+            var action = ToAction(request, p, ++sequence, null);
+            request.Actions.Add(action);
+            db.ContainmentActions.Add(action);
+        }
+    }
+
+    private static ContainmentAction ToAction(LeaverRequest request, PlannedContainmentAction p, int sequence, string? keyPrefix) =>
+            new()
             {
                 LeaverRequestId = request.Id,
-                Sequence = ++sequence,
+                Sequence = sequence,
                 Step = p.Step,
                 Method = p.Method,
                 System = p.System,
@@ -579,15 +653,11 @@ public sealed partial class LeaverWorkflowService(
                 ForestId = p.ForestId,
                 Mandatory = p.Mandatory,
                 Status = p.Skipped ? ContainmentActionStatus.Skipped : ContainmentActionStatus.Pending,
-                IdempotencyKey = $"{request.Id:N}:{p.Key}",
+                IdempotencyKey = keyPrefix is null ? $"{request.Id:N}:{p.Key}" : $"{request.Id:N}:{keyPrefix}:{p.Key}",
                 AuthorityDecision = p.AuthorityDecision,
                 ProtectionDecision = p.ProtectionDecision,
                 Evidence = p.Skipped ? "Not applicable: the person has no identity in this system." : p.ManualReason,
             };
-            request.Actions.Add(action);
-            db.ContainmentActions.Add(action);
-        }
-    }
 
     private static bool StepSatisfied(LeaverRequest request, ContainmentStep step, bool allowPendingVerification = false) =>
         request.Actions.Where(a => a.Step == step && a.Mandatory).All(a =>

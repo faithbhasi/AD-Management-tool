@@ -17,6 +17,7 @@ Each assumption is labelled with how it was established.
 | A3 | PostgreSQL 16 or later is the production database. SQLite is used only for isolated development and tests. | Decided |
 | A4 | One ILM web instance writes the audit chain at a time. With PostgreSQL, a transaction-scoped advisory lock serialises appends across instances. | Assumed |
 | A5 | `System.DirectoryServices.Protocols` on Windows can bind with the process's Kerberos identity (the gMSA) and no stored password. | Unverified. No AD was available here. |
+| A22 | Npgsql on Windows authenticates to PostgreSQL with Kerberos (`pg_hba` `gss`) as the gMSA, so no database password exists in configuration. | Unverified. Only password authentication against PostgreSQL 16 in Docker was exercised here. |
 
 ## Identity
 

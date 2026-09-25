@@ -123,6 +123,15 @@ public sealed class FeasibilityHarnessTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Pcatest_run_refuses_the_simulated_okta_org_and_mock_directory()
+    {
+        var ex = await Assert.ThrowsAsync<DomainException>(() => host.WithAsync<FeasibilityService, FeasibilityRun>(s =>
+            s.RunAsync(Options(), FeasibilityMode.Pcatest, Application.Abstractions.ActorContext.System("test"), CancellationToken.None)));
+        Assert.Equal(SafeErrorCategory.ValidationFailed, ex.Category);
+        Assert.Contains("simulated Okta org", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Okta_provisioning_strategy_stays_disabled_without_approved_feasibility()
     {
         await using var scope = host.Scope();

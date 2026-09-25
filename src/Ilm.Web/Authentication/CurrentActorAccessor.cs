@@ -6,7 +6,7 @@ using Ilm.Domain.Security;
 namespace Ilm.Web.Authentication;
 
 /// <summary>Builds the <see cref="ActorContext"/> for the current operator.</summary>
-public sealed class CurrentActorAccessor(IHttpContextAccessor accessor, IPrivilegedRoleResolver resolver)
+public sealed class CurrentActorAccessor(IHttpContextAccessor accessor, IPrivilegedRoleResolver resolver, AppUserService users)
 {
     /// <summary>Roles from the request's (briefly cached) resolution. For views.</summary>
     public ActorContext Current()
@@ -24,6 +24,11 @@ public sealed class CurrentActorAccessor(IHttpContextAccessor accessor, IPrivile
         if (subject is null || issuer is null)
         {
             return Build(user, new Dictionary<AppRole, IReadOnlyCollection<string>>(), fresh: true);
+        }
+
+        if (await users.RoleBlockerAsync(issuer, subject, cancellationToken) is not null)
+        {
+            return Build(user, new Dictionary<AppRole, IReadOnlyCollection<string>>(), fresh: false);
         }
 
         var resolution = await resolver.ResolveAsync(new OperatorIdentity(issuer, subject), bypassCache: true, cancellationToken);

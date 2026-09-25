@@ -120,6 +120,11 @@ public sealed class ApprovalService(IIlmDbContext db, IAuditWriter audit, TimePr
         }
 
         var blocker = DecisionBlocker(approval, actor, currentContentHash);
+        if (blocker is null && await Security.AppUserService.IsSamePersonAsync(db, approval.RequestedByUserId, actor.AppUserId!.Value, cancellationToken))
+        {
+            blocker = "A requester cannot approve their own request, including under a migrated identity.";
+        }
+
         if (blocker is not null)
         {
             Audit(approval, actor, "ApprovalDecisionDenied", "Denied", blocker);

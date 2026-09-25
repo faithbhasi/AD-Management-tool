@@ -17,12 +17,29 @@ public sealed class FeasibilityService(
     OktaAdFeasibilityHarness harness,
     ApprovalService approvals,
     IActiveConfigurationProvider configuration,
+    IEnumerable<Okta.IFeasibilityEnvironmentControl> environmentControls,
     IAuditWriter audit,
     TimeProvider time)
 {
     public async Task<FeasibilityRun> RunAsync(FeasibilityOptions options, FeasibilityMode mode, ActorContext actor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(actor);
+        ArgumentNullException.ThrowIfNull(options);
+        if (mode == FeasibilityMode.Pcatest)
+        {
+            // Evidence labelled PCATEST must come from PCATEST: never from the simulated Okta org or a mock directory.
+            if (environmentControls.Any(c => c.IsSimulated))
+            {
+                throw new DomainException(SafeErrorCategory.ValidationFailed, "A PCATEST run cannot use the simulated Okta org. Configure Ilm:Okta:Mode=Live against the PCATEST org.");
+            }
+
+            var connector = (await configuration.GetAsync(cancellationToken)).FindConnector(options.TargetConnectorId);
+            if (connector is null || !string.Equals(connector.Implementation, "Ldap", StringComparison.Ordinal))
+            {
+                throw new DomainException(SafeErrorCategory.ValidationFailed, $"A PCATEST run must target a live LDAP connector; '{options.TargetConnectorId}' is {connector?.Implementation ?? "not configured"}.");
+            }
+        }
+
         var run = new FeasibilityRun
         {
             Mode = mode,

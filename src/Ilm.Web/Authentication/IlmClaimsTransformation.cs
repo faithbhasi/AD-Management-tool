@@ -6,9 +6,10 @@ namespace Ilm.Web.Authentication;
 
 /// <summary>
 /// Adds ILM roles resolved server-side (briefly cached). Role claims arriving from any other source are
-/// removed first, so a token can never grant a privileged role.
+/// removed first, so a token can never grant a privileged role. Identities that are not active in ILM
+/// (unknown, disabled, migrated, or awaiting an issuer migration) get no roles.
 /// </summary>
-public sealed class IlmClaimsTransformation(IPrivilegedRoleResolver resolver) : IClaimsTransformation
+public sealed class IlmClaimsTransformation(IPrivilegedRoleResolver resolver, AppUserService users) : IClaimsTransformation
 {
     public const string RoleIdentityType = "ilm-roles";
 
@@ -39,7 +40,10 @@ public sealed class IlmClaimsTransformation(IPrivilegedRoleResolver resolver) : 
             clean.AddIdentity(copy);
         }
 
-        var resolution = await resolver.ResolveAsync(new OperatorIdentity(issuer, subject), bypassCache: false, CancellationToken.None);
+        var blocker = await users.RoleBlockerAsync(issuer, subject, CancellationToken.None);
+        var resolution = blocker is null
+            ? await resolver.ResolveAsync(new OperatorIdentity(issuer, subject), bypassCache: false, CancellationToken.None)
+            : RoleResolution.Failed("operator-status", blocker, DateTime.UtcNow);
         var roles = new ClaimsIdentity(RoleIdentityType, IlmClaimTypes.Name, IlmClaimTypes.Role);
         roles.AddClaim(new Claim(IlmClaimTypes.RoleSource, resolution.Source));
         if (!resolution.Succeeded)

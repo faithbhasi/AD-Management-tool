@@ -1,0 +1,31 @@
+# Development services only. Production runs on Windows Server/IIS with a gMSA (see DEPLOYMENT.md).
+# Secrets come from .env (git-ignored); create it with scripts/dev-env.sh, which generates random values.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${ILM_DEV_PG_ADMIN_PASSWORD:?run scripts/dev-env.sh first}
+      ILM_MIGRATOR_PASSWORD: ${ILM_DEV_PG_MIGRATOR_PASSWORD:?run scripts/dev-env.sh first}
+      ILM_APP_PASSWORD: ${ILM_DEV_PG_APP_PASSWORD:?run scripts/dev-env.sh first}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./deploy/postgres:/ilm-sql:ro
+      - ./deploy/docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-ilm-init.sh:ro
+      - ilm-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 20
+
+  otel-collector:
+    profiles: ["telemetry"]
+    image: otel/opentelemetry-collector:0.114.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./deploy/docker/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "127.0.0.1:4317:4317"
+
+volumes:
+  ilm-pg-data:

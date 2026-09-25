@@ -55,6 +55,7 @@ public sealed class ContainmentPlanner(
             }
             else
             {
+                unresolved.Add(new UnresolvedLink(Guid.Empty, identity.Id, $"{identity.System} {identity.DisplayLabel}", LinkConfidence.Ambiguous, "None (no link record)"));
                 notes.Add($"{identity.System} {identity.DisplayLabel} is associated with the person but has no link record; treated as unresolved.");
             }
         }
@@ -146,6 +147,28 @@ public sealed class ContainmentPlanner(
             unresolved,
             requiresSecurity ? AppRole.SecurityApprover : AppRole.LifecycleApprover,
             notes);
+    }
+
+    /// <summary>
+    /// Plans containment for an account whose link was confirmed after the plan was approved. The approved plan hash
+    /// did not cover it, so ILM never writes to it automatically: it becomes a manual action whose effect ILM verifies
+    /// by reading the directory or Okta.
+    /// </summary>
+    public async Task<PlannedContainmentAction> PlanLateConfirmedAsync(ExternalIdentity identity, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+        const string reason = "This account's link was confirmed after the leaver was approved, so the approved plan does not include it. "
+            + "Contain it manually; ILM verifies the result before the leaver can be SafelyContained.";
+        var decision = await authority.ResolveAsync(identity, LifecycleAction.Leaver, AttributeSet.AccountEnabledState, cancellationToken);
+        if (identity.System != SystemKind.ActiveDirectory)
+        {
+            return Manual(ContainmentStep.AuthenticationContainment, identity.System, identity, decision, "n/a", reason, false);
+        }
+
+        var protectionDecision = identity.ConnectorId is not null && identity.ObjectGuid is not null
+            ? await protection.EvaluateAsync(identity.ConnectorId, identity.ObjectGuid.Value, cancellationToken)
+            : ProtectionDecision.UnknownBecause("No connector or objectGUID.");
+        return Manual(ContainmentStep.DirectoryDisable, SystemKind.ActiveDirectory, identity, decision, protectionDecision.ToAuditString(), reason, protectionDecision.Status != ProtectionStatus.Clear);
     }
 
     private async Task<PlannedContainmentAction> PlanDirectoryAsync(ExternalIdentity d, bool isAuthenticationAuthority, bool hasOkta, ActiveConfiguration config, CancellationToken cancellationToken)

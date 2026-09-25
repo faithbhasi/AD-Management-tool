@@ -1,7 +1,10 @@
 using Ilm.Application.Abstractions;
 using Ilm.Application.Audit;
 using Ilm.Application.Reconciliation;
+using Ilm.Application.Tasks;
+using Ilm.Infrastructure.Audit;
 using Ilm.Modules.Leaver;
+using Microsoft.Extensions.Options;
 
 namespace Ilm.Web.Infrastructure;
 
@@ -37,7 +40,13 @@ public sealed partial class IlmBackgroundWorker(IServiceScopeFactory scopes, Wor
             var now = time.GetUtcNow().UtcDateTime;
             if (now >= nextAudit)
             {
-                await RunAsync("audit-forwarding", async sp => IlmTelemetry.AuditForwarded.Add(await sp.GetRequiredService<AuditForwardingService>().ForwardPendingAsync(stoppingToken)), stoppingToken);
+                await RunAsync("audit-forwarding", async sp =>
+                {
+                    var forwarding = sp.GetRequiredService<AuditForwardingService>();
+                    IlmTelemetry.AuditForwarded.Add(await forwarding.ForwardPendingAsync(stoppingToken));
+                    var maxLag = sp.GetRequiredService<IOptions<AuditOptions>>().Value.MaxForwardingLag;
+                    await forwarding.AlertOnLagAsync(maxLag, sp.GetRequiredService<AlertService>(), stoppingToken);
+                }, stoppingToken);
                 nextAudit = now.AddSeconds(options.AuditForwardingIntervalSeconds);
             }
 

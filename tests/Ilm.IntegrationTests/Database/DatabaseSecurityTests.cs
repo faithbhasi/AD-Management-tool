@@ -85,6 +85,25 @@ public sealed class DatabaseSecurityTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Forwarding_lag_beyond_the_threshold_raises_one_alert()
+    {
+        await using var scope = host.Scope();
+        var sp = scope.ServiceProvider;
+        var forwarding = sp.GetRequiredService<AuditForwardingService>();
+        var alerts = sp.GetRequiredService<Application.Tasks.AlertService>();
+        var db = sp.GetRequiredService<IIlmDbContext>();
+        Assert.True(await forwarding.GetLagAsync(CancellationToken.None) > 0);
+
+        Assert.False(await forwarding.AlertOnLagAsync(long.MaxValue, alerts, CancellationToken.None));
+        Assert.True(await forwarding.AlertOnLagAsync(0, alerts, CancellationToken.None));
+        Assert.False(await forwarding.AlertOnLagAsync(0, alerts, CancellationToken.None));
+        Assert.Equal(1, await db.Alerts.CountAsync(a => a.Category == AuditForwardingService.LagAlertCategory));
+
+        await forwarding.ForwardPendingAsync(CancellationToken.None);
+        Assert.False(await forwarding.AlertOnLagAsync(0, alerts, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Sensitive_values_are_absent_from_audit_and_the_database()
     {
         const string secret = "S3cr3t-Hunter2-Value";

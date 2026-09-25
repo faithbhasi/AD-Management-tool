@@ -86,6 +86,26 @@ public sealed partial class AuditForwardingService(
         return lag;
     }
 
+    public const string LagAlertCategory = "AuditForwardingLag";
+
+    /// <summary>
+    /// Raises a High alert when more than <paramref name="maxLag"/> records have not reached the off-box sink.
+    /// While an unacknowledged lag alert is open, no further lag alert is raised.
+    /// </summary>
+    public async Task<bool> AlertOnLagAsync(long maxLag, Tasks.AlertService alerts, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(alerts);
+        var lag = await GetLagAsync(cancellationToken);
+        if (lag <= maxLag || await db.Alerts.AnyAsync(a => a.Category == LagAlertCategory && a.AcknowledgedUtc == null, cancellationToken))
+        {
+            return false;
+        }
+
+        alerts.Raise(Domain.Tasks.AlertSeverity.High, LagAlertCategory, $"{lag} audit record(s) have not reached the off-box sink (threshold {maxLag}).", null, ActorContext.System("audit-forwarding"));
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Audit forwarding to {Sink} failed ({ErrorType}); will retry.")]
     private static partial void LogForwardFailed(ILogger logger, string sink, string errorType);
 }

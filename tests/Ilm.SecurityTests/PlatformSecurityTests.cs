@@ -69,6 +69,27 @@ public sealed class PlatformSecurityTests : IDisposable
     }
 
     [Fact]
+    public void Secrets_in_configuration_are_refused_in_every_environment()
+    {
+        foreach (var environment in new[] { "Production", "Development" })
+        {
+            var problems = StartupValidator.Validate(Config(new()
+            {
+                ["ConnectionStrings:Ilm"] = "Host=db.example.test;Username=ilm_app;Password=not-a-real-value;SSL Mode=VerifyFull",
+                ["Ilm:Authentication:ClientSecret"] = "not-a-real-value",
+                ["Ilm:Okta:ApiToken"] = "not-a-real-value",
+                ["Ilm:Authentication:ClientSecretEnvironmentVariable"] = "ILM_OIDC_CLIENT_SECRET",
+                ["Ilm:Audit:SiemTokenEnvironmentVariable"] = "ILM_SIEM_TOKEN",
+            }), new Env(environment));
+            Assert.Contains(problems, p => p.Contains("'Ilm:Authentication:ClientSecret'", StringComparison.Ordinal));
+            Assert.Contains(problems, p => p.Contains("'Ilm:Okta:ApiToken'", StringComparison.Ordinal));
+            Assert.Equal(environment == "Production", problems.Any(p => p.Contains("contains a password", StringComparison.Ordinal)));
+            Assert.DoesNotContain(problems, p => p.Contains("EnvironmentVariable", StringComparison.Ordinal));
+            Assert.DoesNotContain(problems, p => p.Contains("not-a-real-value", StringComparison.Ordinal));
+        }
+    }
+
+    [Fact]
     public void Mock_oidc_cannot_be_registered_in_production()
     {
         var services = new ServiceCollection();
@@ -203,7 +224,8 @@ public sealed class PlatformSecurityTests : IDisposable
         var casey = await factory.SignInAsync(FictionalIds.ConfigCasey);
         await IlmWebFactory.PostFormAsync(casey, "/Admin/Protection", "/Admin/Protection", new()
         {
-            ["analysisReference"] = "attack-path-test", ["csv"] = "Sid,S-1-5-21-1000000001-1000000002-1000000003-4001,DcSyncRights",
+            ["analysisReference"] = "attack-path-test",
+            ["csv"] = "Sid,S-1-5-21-1000000001-1000000002-1000000003-4001,DcSyncRights",
         });
         long version;
         using (var scope = factory.Services.CreateScope())

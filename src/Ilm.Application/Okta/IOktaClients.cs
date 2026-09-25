@@ -39,6 +39,9 @@ public interface IFeasibilityDirectoryProbe
 /// <summary>Environment controls that only a mock can offer (for example, simulating an Okta AD Agent outage).</summary>
 public interface IFeasibilityEnvironmentControl
 {
+    /// <summary>True for the in-process mock org. A PCATEST run refuses to start when any simulated control is present.</summary>
+    bool IsSimulated { get; }
+
     bool CanSimulateAgentOutage { get; }
 
     void SetAgentAvailable(bool available);

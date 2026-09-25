@@ -1,0 +1,567 @@
+{
+  "Connectors": [
+    {
+      "Id": "corp",
+      "DisplayName": "Target forest (corp.example.test)",
+      "ForestDnsName": "corp.example.test",
+      "DomainDnsName": "corp.example.test",
+      "DomainSid": "S-1-5-21-1000000001-1000000002-1000000003",
+      "Role": "Target",
+      "Mode": "ReadOnlyTarget",
+      "Implementation": "Mock",
+      "DomainControllers": [
+        "dc01.corp.example.test",
+        "dc02.corp.example.test"
+      ],
+      "UseLdaps": true,
+      "TimeoutSeconds": 30,
+      "MigrationExceptionExpiresUtc": null,
+      "MigrationExceptionOperations": [],
+      "ContainmentMarkerApproved": false,
+      "ContainmentMarkerAttribute": null,
+      "DefaultPopulation": "target-direct"
+    },
+    {
+      "Id": "legacy-a",
+      "DisplayName": "Legacy forest A (legacy-a.example.test)",
+      "ForestDnsName": "legacy-a.example.test",
+      "DomainDnsName": "legacy-a.example.test",
+      "DomainSid": "S-1-5-21-2000000001-2000000002-2000000003",
+      "Role": "Legacy",
+      "Mode": "ContainmentOnlyLegacy",
+      "Implementation": "Mock",
+      "DomainControllers": [
+        "lgadc01.legacy-a.example.test"
+      ],
+      "UseLdaps": true,
+      "TimeoutSeconds": 30,
+      "MigrationExceptionExpiresUtc": null,
+      "MigrationExceptionOperations": [],
+      "ContainmentMarkerApproved": false,
+      "ContainmentMarkerAttribute": null,
+      "DefaultPopulation": "legacy-a"
+    },
+    {
+      "Id": "legacy-b",
+      "DisplayName": "Legacy forest B (legacy-b.example.test)",
+      "ForestDnsName": "legacy-b.example.test",
+      "DomainDnsName": "legacy-b.example.test",
+      "DomainSid": "S-1-5-21-3000000001-3000000002-3000000003",
+      "Role": "Legacy",
+      "Mode": "ReadOnlyLegacy",
+      "Implementation": "Mock",
+      "DomainControllers": [
+        "lgbdc01.legacy-b.example.test"
+      ],
+      "UseLdaps": true,
+      "TimeoutSeconds": 30,
+      "MigrationExceptionExpiresUtc": null,
+      "MigrationExceptionOperations": [],
+      "ContainmentMarkerApproved": false,
+      "ContainmentMarkerAttribute": null,
+      "DefaultPopulation": "legacy-b"
+    }
+  ],
+  "Scopes": [
+    {
+      "Id": "corp-managed",
+      "ConnectorId": "corp",
+      "OuObjectGuid": "ca9a3e7a-6529-1db0-242b-949b6a6b7d89",
+      "DisplayName": "corp: ILM Managed"
+    },
+    {
+      "Id": "corp-staff",
+      "ConnectorId": "corp",
+      "OuObjectGuid": "e5123376-5fe4-2a58-f7a5-cb8e336a6e3e",
+      "DisplayName": "corp: Staff"
+    },
+    {
+      "Id": "corp-workstations",
+      "ConnectorId": "corp",
+      "OuObjectGuid": "9f483aaa-d7b7-d554-2832-27eb881942d6",
+      "DisplayName": "corp: Workstations"
+    },
+    {
+      "Id": "lega-staff",
+      "ConnectorId": "legacy-a",
+      "OuObjectGuid": "14894bc8-dc51-515d-16b7-617ce429748e",
+      "DisplayName": "legacy-a: Legacy Staff"
+    },
+    {
+      "Id": "lega-admins",
+      "ConnectorId": "legacy-a",
+      "OuObjectGuid": "bd92d60e-92b9-bc12-6b44-9b4c8f224a4e",
+      "DisplayName": "legacy-a: Legacy Admins"
+    },
+    {
+      "Id": "legb-users",
+      "ConnectorId": "legacy-b",
+      "OuObjectGuid": "be78718a-54d7-348a-52aa-cae0f1bfffcd",
+      "DisplayName": "legacy-b: Users"
+    }
+  ],
+  "AuthorityRules": [
+    {
+      "Population": "okta-workforce",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Leaver",
+      "AttributeSet": "AccountEnabledState",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": "Okta",
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "okta-workforce",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Leaver",
+      "AttributeSet": "AuthenticationSessions",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": "Okta",
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Leaver",
+      "AttributeSet": "AccountEnabledState",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": "Okta",
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Leaver",
+      "AttributeSet": "GroupMembership",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-direct",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Leaver",
+      "AttributeSet": "AccountEnabledState",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": "ActiveDirectory",
+      "ProvisioningStrategy": "DirectActiveDirectory",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-direct",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Leaver",
+      "AttributeSet": "GroupMembership",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "DirectActiveDirectory",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-admin",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": "Administrative",
+      "LifecycleAction": "Leaver",
+      "AttributeSet": "AccountEnabledState",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": "ActiveDirectory",
+      "ProvisioningStrategy": "DirectActiveDirectory",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "legacy-a",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Leaver",
+      "AttributeSet": "AccountEnabledState",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": "ActiveDirectory",
+      "ProvisioningStrategy": "ContainmentOnlyLegacy",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "legacy-b",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Leaver",
+      "AttributeSet": "AccountEnabledState",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": "ActiveDirectory",
+      "ProvisioningStrategy": "ReadOnly",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "CoreProfile",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "EmploymentAttributes",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "NamingAttributes",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "MailAttributes",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "GroupMembership",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "ApplicationAssignments",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "Password",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "ManualControlled",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "LicenceAssignments",
+      "AuthoritativeSystem": "Entra",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "ManualControlled",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "ManagerAndOwnership",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "DeviceAccess",
+      "AuthoritativeSystem": "Manual",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "ManualControlled",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-okta",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "AccountEnabledState",
+      "AuthoritativeSystem": "Okta",
+      "ContainmentOwner": "Okta",
+      "ProvisioningStrategy": "OktaApiProvisioning",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-direct",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "CoreProfile",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "DirectActiveDirectory",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-direct",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "NamingAttributes",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "DirectActiveDirectory",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-direct",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "MailAttributes",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "DirectActiveDirectory",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-direct",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "GroupMembership",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "DirectActiveDirectory",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    },
+    {
+      "Population": "target-direct",
+      "BusinessEntity": null,
+      "MigrationWave": null,
+      "AccountType": null,
+      "LifecycleAction": "Joiner",
+      "AttributeSet": "Password",
+      "AuthoritativeSystem": "ActiveDirectory",
+      "ContainmentOwner": null,
+      "ProvisioningStrategy": "DirectActiveDirectory",
+      "EffectiveFrom": "2026-01-01T00:00:00Z",
+      "EffectiveUntil": null
+    }
+  ],
+  "ProtectionAdditions": [
+    {
+      "MatchOn": "Sid",
+      "Value": "S-1-5-21-1000000001-1000000002-1000000003-1301",
+      "Category": "CertificateAuthorityServer",
+      "Source": "ImportedAttackPath",
+      "SourceReference": "attack-path-analysis-2026-09-01"
+    },
+    {
+      "MatchOn": "DnsHostName",
+      "Value": "okta-agt01.corp.example.test",
+      "Category": "OktaAgentServer",
+      "Source": "ConfiguredAddition",
+      "SourceReference": "okta-agent-inventory"
+    }
+  ],
+  "RoleMappings": [
+    {
+      "OktaGroupId": "00gReaders0000000001",
+      "AppAssignmentRole": null,
+      "Role": "Reader",
+      "ScopeIds": [
+        "corp-managed",
+        "lega-staff",
+        "lega-admins",
+        "legb-users"
+      ]
+    },
+    {
+      "OktaGroupId": "00gLifecycleOps00001",
+      "AppAssignmentRole": null,
+      "Role": "LifecycleOperator",
+      "ScopeIds": [
+        "corp-managed",
+        "lega-staff",
+        "lega-admins",
+        "legb-users"
+      ]
+    },
+    {
+      "OktaGroupId": "00gLifecycleApr00001",
+      "AppAssignmentRole": null,
+      "Role": "LifecycleApprover",
+      "ScopeIds": [
+        "corp-managed",
+        "lega-staff",
+        "lega-admins",
+        "legb-users"
+      ]
+    },
+    {
+      "OktaGroupId": "00gSecurityApr000001",
+      "AppAssignmentRole": null,
+      "Role": "SecurityApprover",
+      "ScopeIds": [
+        "corp-managed",
+        "lega-staff",
+        "lega-admins",
+        "legb-users"
+      ]
+    },
+    {
+      "OktaGroupId": "00gConfigAdmins00001",
+      "AppAssignmentRole": null,
+      "Role": "ConfigurationAdministrator",
+      "ScopeIds": []
+    },
+    {
+      "OktaGroupId": "00gAuditors000000001",
+      "AppAssignmentRole": null,
+      "Role": "Auditor",
+      "ScopeIds": []
+    }
+  ],
+  "RoleResolution": {
+    "Mode": "OktaGroupMembership",
+    "CacheSeconds": 120,
+    "OktaAppId": null
+  },
+  "LifecyclePolicies": {
+    "SafelyContained": {
+      "RequireAuthenticationContainmentVerified": true,
+      "RequireDirectoryDisableVerified": true,
+      "RequireAllIdentityLinksResolved": true,
+      "SessionRequirements": {
+        "Okta": "Mandatory",
+        "Entra": "Mandatory",
+        "Citrix": "Mandatory",
+        "Vpn": "BestEffort",
+        "Application": "BestEffort"
+      },
+      "OktaAction": "Deactivate",
+      "RevokeOktaOAuthTokens": true,
+      "AllowEmergencyDirectoryOverride": false,
+      "DirectoryVerificationTimeoutSeconds": 300,
+      "ManualContainmentSlaMinutes": 30,
+      "UrgentContainmentSlaMinutes": 15
+    },
+    "GroupRemoval": {
+      "RemoveNonPreservedGroups": true,
+      "PreserveGroupGuids": [
+        "94b77cb6-8f86-65ba-cf29-e00d39880509",
+        "2aa85599-9b47-c58d-7a08-a50a6286815e"
+      ]
+    },
+    "Retention": {
+      "RetainDisabledAccountDays": 90,
+      "AutomaticDeletion": false,
+      "RemoveLicencesAutomatically": false
+    },
+    "Approval": {
+      "LeaverApprovalValidityHours": 24,
+      "ConfigurationApprovalValidityHours": 72
+    }
+  },
+  "FeatureFlags": {
+    "LegacyContainment": true,
+    "OktaContainment": true,
+    "SessionRevocation": true,
+    "Reconciliation": true,
+    "StandardUserCreation": false,
+    "AdministrativeUserCreation": false,
+    "PasswordReset": false,
+    "UserMove": false,
+    "ComputerDisableAndMove": false,
+    "OktaUserProvisioning": false,
+    "OktaToAdProvisioning": false,
+    "EntraLifecycle": false,
+    "ExchangeLifecycle": false,
+    "CitrixLifecycle": false,
+    "MimecastLifecycle": false,
+    "DirectActiveDirectoryContainment": false,
+    "EmergencyDirectoryOverride": false,
+    "MigrationTransition": false
+  },
+  "FeasibilityApprovals": [],
+  "AccountTemplates": []
+}

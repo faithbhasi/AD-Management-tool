@@ -19,14 +19,40 @@ namespace Ilm.Web.Cli;
 /// </summary>
 public static class CommandRunner
 {
-    public static readonly string[] Verbs = ["migrate", "seed-dev", "verify-audit", "feasibility", "check-config", "export-dev-config"];
+    public static readonly string[] Verbs = ["migrate", "seed-dev", "verify-audit", "feasibility", "check-config", "bootstrap-config", "export-dev-config"];
 
     public static bool IsCommand(string[] args) => args.Length > 0 && Verbs.Contains(args[0], StringComparer.Ordinal);
+
+    public const string Usage = """
+        Usage: Ilm.Web <verb> [options]
+          migrate                                   apply migrations with the migration identity
+          seed-dev                                  seed fictional data (Development only)
+          verify-audit                              verify the audit chain and the forwarded copy
+          feasibility --mode mock|pcatest [--output <file>] [--options <json>]
+          check-config --file <json>                validate an ILM configuration document
+          bootstrap-config --file <json> --change <ticket>
+                                                    create configuration version 1 (only when none exists)
+          export-dev-config [--output <file>]       write the fictional bootstrap configuration
+        """;
 
     public static async Task<int> RunAsync(WebApplication app, string[] args)
     {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(args);
+        try
+        {
+            return await RunCoreAsync(app, args);
+        }
+        catch (Exception ex) when (ex is ArgumentException or FileNotFoundException or DirectoryNotFoundException or JsonException)
+        {
+            await Console.Error.WriteLineAsync($"{args[0]}: {ex.Message}");
+            await Console.Error.WriteLineAsync(Usage);
+            return 2;
+        }
+    }
+
+    private static async Task<int> RunCoreAsync(WebApplication app, string[] args)
+    {
         using var scope = app.Services.CreateScope();
         var sp = scope.ServiceProvider;
         var ct = CancellationToken.None;
@@ -81,6 +107,25 @@ public static class CommandRunner
 
                 Console.WriteLine(issues.Count == 0 ? "Configuration is valid." : $"{issues.Count} issue(s).");
                 return issues.Count == 0 ? 0 : 4;
+
+            case "bootstrap-config":
+                var bootstrapPath = Arg(args, "--file") ?? throw new ArgumentException("--file is required.");
+                var change = Arg(args, "--change") ?? throw new ArgumentException("--change <ticket> is required.");
+                var bootstrapJson = await File.ReadAllTextAsync(bootstrapPath, ct);
+                var source = $"change {change}, sha256 {Hashing.Sha256Hex(bootstrapJson)}";
+                try
+                {
+                    var created = await sp.GetRequiredService<ConfigurationService>().BootstrapAsync(ConfigurationSerializer.Deserialize(bootstrapJson), source, ct);
+                    Console.WriteLine(created
+                        ? $"Configuration version 1 created and active ({source})."
+                        : "A configuration already exists. Changes go through propose, approve and activate in the portal.");
+                    return created ? 0 : 5;
+                }
+                catch (Domain.Common.DomainException ex) when (ex.Category == Domain.Common.SafeErrorCategory.ValidationFailed)
+                {
+                    await Console.Error.WriteLineAsync(ex.Message);
+                    return 4;
+                }
 
             case "export-dev-config":
                 var output = Arg(args, "--output") ?? "config/bootstrap.development.json";

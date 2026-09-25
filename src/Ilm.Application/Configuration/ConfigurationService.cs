@@ -170,16 +170,25 @@ public sealed class ConfigurationService(
         return proposed;
     }
 
-    /// <summary>Creates version 1 from a reviewed source-controlled document if no configuration exists.</summary>
-    public async Task<bool> BootstrapAsync(IlmConfigurationDocument document, CancellationToken cancellationToken)
+    /// <summary>
+    /// Creates version 1 from a reviewed, source-controlled document when no configuration exists. It is the only way
+    /// to create the first version (no one holds a role before role mappings exist), so it runs from the host CLI under
+    /// change control and passes the same full validation as any proposal. It never replaces an existing configuration.
+    /// </summary>
+    public async Task<bool> BootstrapAsync(IlmConfigurationDocument document, string sourceReference, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(document);
+        if (string.IsNullOrWhiteSpace(sourceReference))
+        {
+            throw new DomainException(SafeErrorCategory.ValidationFailed, "A bootstrap needs a source reference (change ticket and document hash).");
+        }
+
         if (await db.ConfigurationVersions.AnyAsync(cancellationToken))
         {
             return false;
         }
 
-        var platform = await platformIdentities.GetAsync(cancellationToken);
-        var issues = ConfigurationValidator.Validate(document, platform, time.GetUtcNow().UtcDateTime);
+        var issues = await ValidateAsync(document, cancellationToken);
         if (issues.Count > 0)
         {
             throw new DomainException(SafeErrorCategory.ValidationFailed, "Bootstrap configuration is invalid: " + string.Join(" ", issues.Select(i => i.Code)));
@@ -192,7 +201,7 @@ public sealed class ConfigurationService(
             Status = ConfigurationVersionStatus.Active,
             DocumentJson = ConfigurationSerializer.Serialize(document),
             ContentHash = ConfigurationSerializer.ContentHash(document),
-            Summary = "Bootstrap from source-controlled configuration (reviewed through change management).",
+            Summary = AuditSanitizer.SanitizeText($"Bootstrap from source-controlled configuration ({(sourceReference.Length > 200 ? sourceReference[..200] : sourceReference).Trim()})."),
             ProposedByLabel = "system:bootstrap",
             ProposedUtc = now,
             ApprovedUtc = now,
@@ -207,7 +216,7 @@ public sealed class ConfigurationService(
             Result = "Active",
             TargetStableId = "config:v1",
             ConfigurationVersion = 1,
-            AppliedValues = new { version.ContentHash },
+            AppliedValues = new { version.ContentHash, source = sourceReference.Trim() },
         }, ActorContext.System("bootstrap"));
         await db.SaveChangesAsync(cancellationToken);
         activeProvider.Invalidate();
@@ -238,16 +247,19 @@ public sealed class ConfigurationService(
 
     private async Task ValidateScopesAgainstDirectoryAsync(IlmConfigurationDocument document, Domain.Protection.PlatformIdentities platform, List<ValidationIssue> issues, CancellationToken cancellationToken)
     {
+        // Readers come from the proposed document's own connector definitions, so new connectors and the bootstrap are
+        // verified too. Unknown connectors and non-GUID scopes are already reported by ConfigurationValidator.
         foreach (var scope in document.Scopes)
         {
-            if (!Guid.TryParse(scope.OuObjectGuid, out var guid) || !registry.ConnectorIds.Contains(scope.ConnectorId, StringComparer.OrdinalIgnoreCase))
+            var definition = document.Connectors.FirstOrDefault(c => string.Equals(c.Id, scope.ConnectorId, StringComparison.OrdinalIgnoreCase));
+            if (!Guid.TryParse(scope.OuObjectGuid, out var guid) || definition is null || definition.Mode == Domain.Directory.ConnectorMode.Disabled)
             {
                 continue;
             }
 
             try
             {
-                var reader = registry.GetReader(scope.ConnectorId);
+                var reader = registry.CreateReaderFor(definition);
                 var ou = await reader.GetByGuidAsync(guid, null, cancellationToken);
                 if (ou is null)
                 {

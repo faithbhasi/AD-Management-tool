@@ -37,7 +37,10 @@ public sealed class PortalJourneyTests : IDisposable
         var id = await PersonId(operatorClient, person);
         var response = await IlmWebFactory.PostFormAsync(operatorClient, $"/Leavers/New?personId={id}", $"/Leavers/New?personId={id}", new()
         {
-            ["Reason"] = "End-to-end test leaver", ["TicketReference"] = ticket, ["Urgency"] = "Urgent", ["IdempotencyKey"] = Guid.NewGuid().ToString("N"),
+            ["Reason"] = "End-to-end test leaver",
+            ["TicketReference"] = ticket,
+            ["Urgency"] = "Urgent",
+            ["IdempotencyKey"] = Guid.NewGuid().ToString("N"),
         });
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         return Guid.Parse(Match(response.Headers.Location!.ToString(), "/Leavers/Details/([0-9a-f-]{36})"));

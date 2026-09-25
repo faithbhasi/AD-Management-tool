@@ -81,8 +81,16 @@ public sealed class PostgresPrivilegeTests
             ctx.AuditRecords.Add(new Domain.Audit.AuditRecord { TimestampUtc = DateTime.UtcNow, Action = "PgTest", Result = "ok" });
             ctx.AuditRecords.Add(new Domain.Audit.AuditRecord { TimestampUtc = DateTime.UtcNow, Action = "PgTest2", Result = "ok" });
             await ctx.SaveChangesAsync();
-            var records = await ctx.AuditRecords.OrderBy(r => r.Sequence).ToListAsync();
-            Assert.True(new AuditChainVerifier(keys).Verify(records).IsValid);
+        }
+
+        // Verify what PostgreSQL actually stored (a fresh context, no tracked instances): the chain must survive
+        // the round trip, including timestamptz's microsecond precision.
+        await using (var ctx = new PostgresIlmDbContext(new DbContextOptionsBuilder<PostgresIlmDbContext>().UseNpgsql(app.ConnectionString).Options, keys))
+        {
+            var records = await ctx.AuditRecords.AsNoTracking().OrderBy(r => r.Sequence).ToListAsync();
+            Assert.Equal(2, records.Count);
+            var verification = new AuditChainVerifier(keys).Verify(records);
+            Assert.True(verification.IsValid, string.Join("; ", verification.Problems));
         }
 
         // ...but cannot change the schema or rewrite history.

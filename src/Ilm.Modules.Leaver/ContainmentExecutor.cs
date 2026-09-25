@@ -369,6 +369,14 @@ public sealed class ContainmentExecutor(
         }
     }
 
+    /// <summary>Turns an action into a manual task with a runbook, an alert and an SLA timer, without attempting it.</summary>
+    public Task EscalateToManualAsync(LeaverRequest request, ContainmentAction action, string reason, ActorContext actor, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(action);
+        return RequireManualAsync(request, action, reason, actor, cancellationToken);
+    }
+
     private async Task RequireManualAsync(LeaverRequest request, ContainmentAction action, string reason, ActorContext actor, CancellationToken cancellationToken)
     {
         if (action.Status is not (ContainmentActionStatus.Failed or ContainmentActionStatus.NotConfigured or ContainmentActionStatus.Unsupported or ContainmentActionStatus.Unknown))

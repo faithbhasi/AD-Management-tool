@@ -65,6 +65,12 @@ public sealed class IdentityLinkService(IIlmDbContext db, IAuditWriter audit, Ti
         var link = await db.IdentityLinks.FirstOrDefaultAsync(l => l.Id == linkId, cancellationToken)
             ?? throw new DomainException(SafeErrorCategory.NotFound, "Link not found.");
         var before = link.Confidence;
+        if (link.CreatedByUserId is { } proposer && proposer != actor.AppUserId.Value
+            && await Security.AppUserService.IsSamePersonAsync(db, proposer, actor.AppUserId.Value, cancellationToken))
+        {
+            throw new DomainException(SafeErrorCategory.ApprovalInvalid, "The person who proposed a link cannot approve it, including under a migrated identity.");
+        }
+
         IdentityLinkPolicy.Approve(link, actor.AppUserId.Value, actor.Label, time.GetUtcNow().UtcDateTime);
         audit.Append(new AuditEvent
         {

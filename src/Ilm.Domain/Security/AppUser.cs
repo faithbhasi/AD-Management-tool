@@ -32,6 +32,12 @@ public enum AppUserStatus
     Active = 0,
     Migrated,
     Disabled,
+
+    /// <summary>
+    /// Signed in under a new issuer while the same subject is active under another issuer. Holds no roles until a
+    /// Security Approver approves the issuer migration.
+    /// </summary>
+    PendingIssuerMigration,
 }
 
 /// <summary>A dual-controlled mapping from an old (issuer, subject) to a new one after an authorization-server change.</summary>

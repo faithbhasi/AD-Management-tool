@@ -31,6 +31,12 @@ public sealed class DirectoryConnectorRegistry(
     public ForestRole RoleOf(string connectorId) =>
         (Snapshot.FindConnector(connectorId) ?? throw new KeyNotFoundException($"Connector '{connectorId}' is not configured.")).Role;
 
+    public IDirectoryReader CreateReaderFor(Domain.Configuration.DirectoryConnectorDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        return (IDirectoryReader)Create(definition);
+    }
+
     private object Get(string connectorId)
     {
         if (cache.TryGetValue(connectorId, out var existing))
@@ -39,13 +45,15 @@ public sealed class DirectoryConnectorRegistry(
         }
 
         var definition = Snapshot.FindConnector(connectorId) ?? throw new KeyNotFoundException($"Connector '{connectorId}' is not configured.");
-        object connector = definition.Implementation switch
-        {
-            "Mock" => new MockDirectoryConnector(mockStore, definition),
-            "Ldap" => new LdapDirectoryConnector(definition, ldapConnections, loggers.CreateLogger<LdapDirectoryConnector>()),
-            _ => throw new InvalidOperationException($"Unknown connector implementation '{definition.Implementation}'."),
-        };
+        var connector = Create(definition);
         cache[connectorId] = connector;
         return connector;
     }
+
+    private object Create(Domain.Configuration.DirectoryConnectorDefinition definition) => definition.Implementation switch
+    {
+        "Mock" => new MockDirectoryConnector(mockStore, definition),
+        "Ldap" => new LdapDirectoryConnector(definition, ldapConnections, loggers.CreateLogger<LdapDirectoryConnector>()),
+        _ => throw new InvalidOperationException($"Unknown connector implementation '{definition.Implementation}'."),
+    };
 }

@@ -69,7 +69,9 @@ public sealed class JsonlFileAuditForwarder : IAuditForwarder, IAuditSinkReader
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
             var sequence = root.GetProperty(nameof(AuditRecord.Sequence)).GetInt64();
-            result[sequence] = new ForwardedAuditEntry(sequence, root.GetProperty(nameof(AuditRecord.Hash)).GetString()!, root.GetProperty(nameof(AuditRecord.Mac)).GetString()!);
+            // A batch can be forwarded twice (crash between the sink write and the checkpoint update). The first entry
+            // for a sequence is the one the append-only sink received first, so it is authoritative.
+            result.TryAdd(sequence, new ForwardedAuditEntry(sequence, root.GetProperty(nameof(AuditRecord.Hash)).GetString()!, root.GetProperty(nameof(AuditRecord.Mac)).GetString()!));
         }
 
         return result;

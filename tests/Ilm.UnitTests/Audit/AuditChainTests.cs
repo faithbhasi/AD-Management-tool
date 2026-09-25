@@ -27,6 +27,19 @@ public sealed class AuditChainTests
     public void Intact_chain_verifies() => Assert.True(new AuditChainVerifier(Keys).Verify(Chain(5)).IsValid);
 
     [Fact]
+    public void Sealed_timestamp_survives_a_microsecond_precision_database_round_trip()
+    {
+        var record = new AuditRecord { EventId = Guid.NewGuid(), TimestampUtc = new DateTime(2026, 9, 25, 12, 0, 0, DateTimeKind.Utc).AddTicks(1234567), Action = "Test", Result = "Succeeded" };
+        AuditChain.Seal(record, 1, AuditChain.GenesisHash, Keys.CurrentKey);
+
+        // PostgreSQL timestamptz keeps whole microseconds; the value read back must hash identically.
+        var readBack = new DateTime(record.TimestampUtc.Ticks / 10 * 10, DateTimeKind.Utc);
+        Assert.Equal(record.TimestampUtc, readBack);
+        record.TimestampUtc = readBack;
+        Assert.True(new AuditChainVerifier(Keys).Verify([record]).IsValid);
+    }
+
+    [Fact]
     public void Modified_record_is_detected()
     {
         var chain = Chain(5);

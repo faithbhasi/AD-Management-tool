@@ -81,4 +81,10 @@ public interface IDirectoryConnectorRegistry
     IDirectoryWriteChannel GetWriteChannel(string connectorId);
 
     ForestRole RoleOf(string connectorId);
+
+    /// <summary>
+    /// A read-only view of a connector that may not be active yet (a configuration proposal or the bootstrap), so a
+    /// proposed document is validated against the directories it describes rather than the active configuration.
+    /// </summary>
+    IDirectoryReader CreateReaderFor(Domain.Configuration.DirectoryConnectorDefinition definition);
 }

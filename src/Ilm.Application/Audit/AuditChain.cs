@@ -80,17 +80,25 @@ public static class AuditChain
         return Convert.ToHexStringLower(HMACSHA256.HashData(key.Material, Encoding.UTF8.GetBytes(hash)));
     }
 
-    /// <summary>Assigns sequence, previous hash, hash and MAC. Called once, when the record is persisted.</summary>
+    /// <summary>
+    /// Assigns sequence, previous hash, hash and MAC. Called once, when the record is persisted. The timestamp is
+    /// truncated to whole microseconds first: PostgreSQL stores microseconds, so hashing .NET's 100 ns ticks would make
+    /// every record read back from the database fail verification.
+    /// </summary>
     public static void Seal(AuditRecord record, long sequence, string previousHash, AuditKey key)
     {
         ArgumentNullException.ThrowIfNull(record);
         ArgumentNullException.ThrowIfNull(key);
+        record.TimestampUtc = TruncateToMicroseconds(record.TimestampUtc);
         record.Sequence = sequence;
         record.PreviousHash = previousHash;
         record.MacKeyId = key.KeyId;
         record.Hash = ComputeHash(record);
         record.Mac = ComputeMac(key, record.Hash);
     }
+
+    public static DateTime TruncateToMicroseconds(DateTime value) =>
+        new(value.Ticks - (value.Ticks % 10), DateTimeKind.Utc);
 
     private static void Str(Utf8JsonWriter w, string? value)
     {
