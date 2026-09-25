@@ -30,6 +30,7 @@ public sealed class LeaverTransitions(IIlmDbContext db, IAuditWriter audit, Aler
         {
             LeaverRequestId = request.Id,
             OperationId = request.Id,
+            Ordinal = ++request.TransitionCount,
             CorrelationId = request.CorrelationId,
             IdempotencyKey = request.IdempotencyKey,
             Actor = actor.Label,

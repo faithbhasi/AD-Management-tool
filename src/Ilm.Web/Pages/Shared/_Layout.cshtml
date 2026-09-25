@@ -35,7 +35,7 @@
         <div class="who">
             <a href="/Account/Me">@user.Identity!.Name</a>
             <span class="roles">@(roles.Count == 0 ? "no roles" : string.Join(", ", roles))</span>
-            <form method="post" action="/Account/SignOut" class="inline"><button type="submit" class="link">Sign out</button></form>
+            <form method="post" asp-page="/Account/SignOut" class="inline"><button type="submit" class="link">Sign out</button></form>
         </div>
     }
 </header>

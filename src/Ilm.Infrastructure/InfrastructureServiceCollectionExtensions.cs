@@ -19,6 +19,7 @@ using Ilm.Infrastructure.Security;
 using Ilm.Infrastructure.Sessions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace Ilm.Infrastructure;
@@ -118,7 +119,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IPlatformIdentityProvider, PlatformIdentityProvider>();
         services.AddScoped<IConnectorHealthSource, ConnectorHealthSource>();
         services.AddScoped<DevelopmentSeeder>();
-        _ = environment;
+        services.TryAddSingleton(environment);
         return services;
     }
 }

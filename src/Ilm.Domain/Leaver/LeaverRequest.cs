@@ -55,6 +55,9 @@ public sealed class LeaverRequest
 
     public Guid ConcurrencyStamp { get; set; } = Guid.NewGuid();
 
+    /// <summary>Number of recorded transitions; gives each transition a gap-free ordinal.</summary>
+    public int TransitionCount { get; set; }
+
     public SafeErrorCategory LastErrorCategory { get; set; }
 
     public List<ContainmentAction> Actions { get; set; } = [];
@@ -127,6 +130,9 @@ public sealed class LeaverTransition
     public Guid LeaverRequestId { get; set; }
 
     public Guid OperationId { get; set; }
+
+    /// <summary>Position of this transition within the request (1, 2, 3, ...), independent of clock resolution.</summary>
+    public int Ordinal { get; set; }
 
     public Guid CorrelationId { get; set; }
 

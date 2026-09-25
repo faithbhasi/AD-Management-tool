@@ -61,7 +61,17 @@ public sealed partial class LeaverWorkflowService(
 
         var person = await db.Persons.FirstOrDefaultAsync(p => p.Id == command.PersonId, cancellationToken)
             ?? throw new DomainException(SafeErrorCategory.NotFound, "Person not found.");
-        await EnsureInScopeAsync(actor, AppRole.LifecycleOperator, person.Id, cancellationToken);
+        if (!await IsInScopeAsync(actor, AppRole.LifecycleOperator, person.Id, cancellationToken))
+        {
+            // A leaver must never be blocked just because every account sits outside Tier 1 scopes (for example a
+            // Tier 0-only person). Such a request is allowed only when nothing in the plan would be automated
+            // against a directory or Okta; it then needs Security Approver approval and is contained manually.
+            var preview = await planner.BuildAsync(person.Id, cancellationToken);
+            if (preview.Actions.Any(a => !a.Skipped && a.Method is ContainmentMethod.OktaApi or ContainmentMethod.ContainmentOnlyLegacy or ContainmentMethod.DirectActiveDirectory or ContainmentMethod.VerifyOnly))
+            {
+                throw new DomainException(SafeErrorCategory.NotAuthorised, "None of the person's accounts could be confirmed within your OU scopes.");
+            }
+        }
 
         if (await db.LeaverRequests.AnyAsync(r => r.PersonId == person.Id && r.IsActive, cancellationToken))
         {
@@ -585,14 +595,14 @@ public sealed partial class LeaverWorkflowService(
             || (allowPendingVerification && a.Method == ContainmentMethod.VerifyOnly && a.Status == ContainmentActionStatus.InProgress));
 
     /// <summary>The DN is resolved from the directory at request time (never trusted from the database).</summary>
-    private async Task EnsureInScopeAsync(ActorContext actor, AppRole role, Guid personId, CancellationToken cancellationToken)
+    private async Task<bool> IsInScopeAsync(ActorContext actor, AppRole role, Guid personId, CancellationToken cancellationToken)
     {
         var directoryIdentities = await db.ExternalIdentities.AsNoTracking()
             .Where(i => i.PersonId == personId && i.System == SystemKind.ActiveDirectory && i.ConnectorId != null && i.ObjectGuid != null)
             .ToListAsync(cancellationToken);
         if (directoryIdentities.Count == 0)
         {
-            return;
+            return true;
         }
 
         foreach (var identity in directoryIdentities)
@@ -615,11 +625,11 @@ public sealed partial class LeaverWorkflowService(
             var decision = await scopes.EvaluateAsync(actor, role, identity.ConnectorId!, current.DistinguishedName, cancellationToken);
             if (decision.InScope)
             {
-                return;
+                return true;
             }
         }
 
-        throw new DomainException(SafeErrorCategory.NotAuthorised, "None of the person's accounts could be confirmed within your OU scopes.");
+        return false;
     }
 
     private async Task RestorePersonStatusAsync(LeaverRequest request, CancellationToken cancellationToken)

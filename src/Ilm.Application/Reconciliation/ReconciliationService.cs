@@ -201,6 +201,7 @@ public sealed class ReconciliationService(
             {
                 LeaverRequestId = request.Id,
                 OperationId = request.Id,
+                Ordinal = ++request.TransitionCount,
                 CorrelationId = actor.CorrelationId,
                 IdempotencyKey = request.IdempotencyKey,
                 Actor = actor.Label,

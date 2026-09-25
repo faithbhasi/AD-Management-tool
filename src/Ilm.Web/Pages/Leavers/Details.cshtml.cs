@@ -37,7 +37,7 @@ public sealed class DetailsModel(IIlmDbContext db, LeaverWorkflowService workflo
         Person = await db.Persons.AsNoTracking().FirstOrDefaultAsync(p => p.Id == request.PersonId, cancellationToken);
         Plan = request.PlanJson is null ? null : LeaverPlan.FromJson(request.PlanJson);
         Approval = request.ApprovalId is null ? null : await db.Approvals.AsNoTracking().FirstOrDefaultAsync(a => a.Id == request.ApprovalId, cancellationToken);
-        Transitions = await db.LeaverTransitions.AsNoTracking().Where(t => t.LeaverRequestId == id).OrderBy(t => t.TimestampUtc).ToListAsync(cancellationToken);
+        Transitions = await db.LeaverTransitions.AsNoTracking().Where(t => t.LeaverRequestId == id).OrderBy(t => t.Ordinal).ToListAsync(cancellationToken);
         Tasks = await db.ManualTasks.AsNoTracking().Where(t => t.LeaverRequestId == id).OrderBy(t => t.CreatedUtc).ToListAsync(cancellationToken);
         return Page();
     }

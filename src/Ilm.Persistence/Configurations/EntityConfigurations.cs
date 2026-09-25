@@ -200,6 +200,7 @@ internal sealed class LeaverTransitionConfiguration : IEntityTypeConfiguration<L
     {
         b.HasKey(t => t.Id);
         b.HasIndex(t => new { t.LeaverRequestId, t.TimestampUtc });
+        b.HasIndex(t => new { t.LeaverRequestId, t.Ordinal }).IsUnique();
     }
 }
 

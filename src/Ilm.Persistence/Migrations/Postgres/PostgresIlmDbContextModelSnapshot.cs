@@ -906,6 +906,9 @@ namespace Ilm.Persistence.Migrations.Postgres
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<int>("TransitionCount")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("UpdatedUtc")
                         .HasColumnType("timestamp with time zone");
 
@@ -975,6 +978,9 @@ namespace Ilm.Persistence.Migrations.Postgres
                     b.Property<Guid>("OperationId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer");
+
                     b.Property<string>("PreviousState")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -1005,6 +1011,9 @@ namespace Ilm.Persistence.Migrations.Postgres
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LeaverRequestId", "Ordinal")
+                        .IsUnique();
 
                     b.HasIndex("LeaverRequestId", "TimestampUtc");
 
