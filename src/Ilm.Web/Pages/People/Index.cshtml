@@ -1,0 +1,12 @@
+@page
+@model Ilm.Web.Pages.People.IndexModel
+@{ ViewData["Title"] = "People"; }
+<h1>People</h1>
+<p class="muted">A person is separate from their accounts. ILM issues its own person identifier; it never invents an HR identifier.</p>
+<form method="get"><input type="search" name="q" value="@Model.Q" placeholder="Name or ILM person ID" /> <button type="submit">Search</button></form>
+<table class="grid"><thead><tr><th>Name</th><th>Person ID</th><th>Source</th><th>Business entity</th><th>Department</th><th>Status</th></tr></thead><tbody>
+@foreach (var p in Model.Results)
+{
+    <tr><td><a href="/People/Details/@p.Id">@p.DisplayName</a></td><td>@p.PersonIdentifier</td><td>@p.PersonIdentifierSource</td><td>@p.BusinessEntity</td><td>@p.Department</td><td>@p.LifecycleStatus</td></tr>
+}
+</tbody></table>

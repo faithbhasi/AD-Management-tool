@@ -1,0 +1,8 @@
+@page
+@model Ilm.Web.Pages.Admin.HealthModel
+@{ ViewData["Title"] = "Health"; }
+<h1>Application and connector health</h1>
+<p class="muted">Anonymous probes: /health/live and /health/ready (status only, no details).</p>
+<table class="grid"><thead><tr><th>Component</th><th>Status</th><th>Mock</th><th>Detail</th></tr></thead><tbody>
+@foreach (var c in Model.Components) { <tr><td>@c.Component</td><td><span class="badge @(c.Healthy ? "ok" : "warn")">@(c.Healthy ? "Healthy" : "Degraded")</span></td><td>@(c.IsMock ? "mock" : "")</td><td>@c.Detail</td></tr> }
+</tbody></table>

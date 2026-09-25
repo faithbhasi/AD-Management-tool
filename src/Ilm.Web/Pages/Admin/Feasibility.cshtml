@@ -1,0 +1,22 @@
+@page
+@model Ilm.Web.Pages.Admin.FeasibilityModel
+@using Ilm.Domain.Feasibility
+@{ ViewData["Title"] = "Okta-to-AD feasibility"; }
+<h1>Okta-to-AD provisioning feasibility</h1>
+<p class="muted">OktaApiProvisioningStrategy stays disabled until a PCATEST report with a Go or Conditional Go recommendation is approved by a Security Approver and referenced by an approved configuration version. PCATEST runs use the CLI with an options file (see OKTA-AD-PROVISIONING.md).</p>
+@if (Model.Can(Permission.RunFeasibility)) { <form method="post" asp-page-handler="RunMock"><button type="submit">Run the harness against the mock (demonstration only)</button></form> }
+<table class="grid"><thead><tr><th>Started</th><th>Mode</th><th>Environment</th><th>Recommendation</th><th>Status</th><th>Report hash</th><th></th></tr></thead><tbody>
+@foreach (var r in Model.Runs)
+{
+    <tr><td><a href="/Admin/Feasibility?id=@r.Id">@r.StartedUtc.ToString("u")</a></td><td>@r.Mode</td><td>@r.Environment</td><td>@Ilm.Application.Feasibility.FeasibilityReportGenerator.Label(r.Recommendation)</td><td>@r.Status</td><td><small>@r.ReportSha256[..16]</small></td>
+    <td>
+    @if (r.Mode == FeasibilityMode.Pcatest && r.Status == FeasibilityRunStatus.Draft && Model.Can(Permission.RunFeasibility)) { <form method="post" asp-page-handler="Submit" class="inline"><input type="hidden" name="id" value="@r.Id" /><button type="submit">Submit for approval</button></form> }
+    @if (r.Status == FeasibilityRunStatus.AwaitingApproval && Model.Can(Permission.ApproveFeasibility))
+    {
+        <form method="post" asp-page-handler="Decide" class="inline"><input type="hidden" name="id" value="@r.Id" /><input type="hidden" name="approve" value="true" /><button type="submit">Approve</button></form>
+        <form method="post" asp-page-handler="Decide" class="inline"><input type="hidden" name="id" value="@r.Id" /><input type="hidden" name="approve" value="false" /><button type="submit" class="danger">Reject</button></form>
+    }
+    </td></tr>
+}
+</tbody></table>
+@if (Model.Selected is not null) { <h2>Report</h2><pre class="report">@Model.Selected.ReportMarkdown</pre> }

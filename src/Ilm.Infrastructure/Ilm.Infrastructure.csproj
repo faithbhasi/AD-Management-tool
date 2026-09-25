@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Ilm.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Ilm.Application\Ilm.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.DirectoryServices.Protocols" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Ilm.UnitTests" />
+    <InternalsVisibleTo Include="Ilm.SecurityTests" />
+  </ItemGroup>
+</Project>

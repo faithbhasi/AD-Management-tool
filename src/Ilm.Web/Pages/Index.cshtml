@@ -1,0 +1,66 @@
+@page
+@model IndexModel
+@{ ViewData["Title"] = "Dashboard"; }
+<h1>Dashboard</h1>
+<div class="cards">
+    <div class="card">
+        <h2>My role and permissions</h2>
+        <p>@(Model.MyPermissions.Count == 0 ? "You hold no ILM roles." : string.Join(", ", Model.MyPermissions))</p>
+        <p class="muted">Roles come from immutable Okta group IDs resolved server-side. <a href="/Account/Me">Details</a></p>
+    </div>
+    <div class="card">
+        <h2>Health</h2>
+        <table class="grid compact"><tbody>
+        @foreach (var h in Model.Health)
+        {
+            <tr><td>@h.Component @(h.IsMock ? "(mock)" : "")</td><td>@(h.Healthy ? "OK" : "Degraded")</td></tr>
+        }
+        </tbody></table>
+    </div>
+    <div class="card">
+        <h2>Provisioning strategies</h2>
+        <table class="grid compact"><tbody>
+        @foreach (var (kind, enabled) in Model.Strategies.OrderBy(k => k.Key))
+        {
+            <tr><td>@kind</td><td>@(enabled ? "Enabled" : "Disabled")</td></tr>
+        }
+        </tbody></table>
+    </div>
+</div>
+
+<h2>Pending approvals you can decide (@Model.PendingApprovals.Count)</h2>
+<table class="grid"><thead><tr><th>Created</th><th>Type</th><th>Summary</th><th>Requires</th><th>Requested by</th></tr></thead><tbody>
+@foreach (var a in Model.PendingApprovals)
+{
+    <tr><td>@a.CreatedUtc.ToString("u")</td><td>@a.SubjectType</td><td><a href="/Approvals?id=@a.Id">@a.Summary</a></td><td>@a.RequiredRole</td><td>@a.RequestedByLabel</td></tr>
+}
+</tbody></table>
+
+<h2>Active containment and pending leavers (@Model.ActiveContainment.Count)</h2>
+<table class="grid"><thead><tr><th>Updated</th><th>Request</th><th>State</th><th>Urgency</th><th>Ticket</th></tr></thead><tbody>
+@foreach (var r in Model.ActiveContainment)
+{
+    <tr><td>@r.UpdatedUtc.ToString("u")</td><td><a href="/Leavers/Details/@r.Id">@r.Id.ToString()[..8]</a></td><td class="state">@r.State</td><td>@r.Urgency</td><td>@r.TicketReference</td></tr>
+}
+</tbody></table>
+
+<h2>Unresolved manual containment (@Model.ManualContainment.Count)</h2>
+<table class="grid"><thead><tr><th>SLA due</th><th>Severity</th><th>Task</th><th>Status</th></tr></thead><tbody>
+@foreach (var t in Model.ManualContainment)
+{
+    <tr><td>@t.SlaDueUtc?.ToString("u") @(t.SlaBreached ? "(BREACHED)" : "")</td><td>@t.Severity</td><td><a href="/Tasks/Details/@t.Id">@t.Title</a></td><td>@t.Status</td></tr>
+}
+</tbody></table>
+
+<h2>Open alerts</h2>
+<table class="grid"><thead><tr><th>Created</th><th>Severity</th><th>Category</th><th>Message</th></tr></thead><tbody>
+@foreach (var a in Model.OpenAlerts) { <tr><td>@a.CreatedUtc.ToString("u")</td><td>@a.Severity</td><td>@a.Category</td><td>@a.Message</td></tr> }
+</tbody></table>
+
+<h2>Recent operations</h2>
+<table class="grid"><thead><tr><th>Time</th><th>Request</th><th>Transition</th><th>Actor</th><th>Reason</th></tr></thead><tbody>
+@foreach (var t in Model.RecentOperations)
+{
+    <tr><td>@t.TimestampUtc.ToString("u")</td><td><a href="/Leavers/Details/@t.LeaverRequestId">@t.LeaverRequestId.ToString()[..8]</a></td><td>@t.PreviousState → @t.NextState</td><td>@t.Actor</td><td>@t.Reason</td></tr>
+}
+</tbody></table>

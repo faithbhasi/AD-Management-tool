@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ilm.Application/Ilm.Application.csproj" />
+    <Project Path="src/Ilm.Domain/Ilm.Domain.csproj" />
+    <Project Path="src/Ilm.Infrastructure/Ilm.Infrastructure.csproj" />
+    <Project Path="src/Ilm.Modules.Leaver/Ilm.Modules.Leaver.csproj" />
+    <Project Path="src/Ilm.Modules.ReadOnly/Ilm.Modules.ReadOnly.csproj" />
+    <Project Path="src/Ilm.Persistence/Ilm.Persistence.csproj" />
+    <Project Path="src/Ilm.Web/Ilm.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ilm.EndToEndTests/Ilm.EndToEndTests.csproj" />
+    <Project Path="tests/Ilm.IntegrationTests/Ilm.IntegrationTests.csproj" />
+    <Project Path="tests/Ilm.SecurityTests/Ilm.SecurityTests.csproj" />
+    <Project Path="tests/Ilm.UnitTests/Ilm.UnitTests.csproj" />
+  </Folder>
+</Solution>

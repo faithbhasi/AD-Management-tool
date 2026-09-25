@@ -1,0 +1,18 @@
+@page
+@model Ilm.Web.Pages.Account.MeModel
+@{ ViewData["Title"] = "My identity"; }
+<h1>My identity</h1>
+<div class="card">
+<dl class="kv">
+    <dt>Issuer</dt><dd>@Model.Issuer</dd>
+    <dt>Subject</dt><dd>@Model.Subject</dd>
+    <dt>Identity key</dt><dd>(issuer, subject). Email, UPN, username, display name and group names are never used to identify you.</dd>
+    <dt>Role source</dt><dd>@(Model.RoleSource ?? "n/a")</dd>
+    @if (Model.RoleFailure is not null) { <dt>Role verification</dt><dd class="banner error">Failed: @Model.RoleFailure. You have no roles until verification succeeds.</dd> }
+</dl>
+</div>
+<h2>Roles and OU scopes</h2>
+<table class="grid"><thead><tr><th>Role</th><th>Scopes</th></tr></thead><tbody>
+@foreach (var (role, scopes) in Model.Roles) { <tr><td>@role</td><td>@(scopes.Count == 0 ? "(not scope-limited)" : string.Join(", ", scopes))</td></tr> }
+@if (Model.Roles.Count == 0) { <tr><td colspan="2">No roles.</td></tr> }
+</tbody></table>

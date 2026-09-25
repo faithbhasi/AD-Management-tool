@@ -1,0 +1,91 @@
+@page "{id:guid}"
+@model Ilm.Web.Pages.Leavers.DetailsModel
+@using Ilm.Domain.Leaver
+@{ var r = Model.Leaver; ViewData["Title"] = "Leaver " + r.Id.ToString()[..8]; }
+<h1>Leaver: @(Model.Person?.DisplayName) <span class="badge @(r.State == LeaverState.SafelyContained || r.State == LeaverState.Completed ? "ok" : LeaverStateMachine.RequiresAttention(r.State) ? "danger" : "warn")">@r.State</span></h1>
+<div class="cards">
+<div class="card"><dl class="kv">
+    <dt>Operation ID</dt><dd>@r.Id</dd>
+    <dt>Correlation ID</dt><dd>@r.CorrelationId</dd>
+    <dt>Idempotency key</dt><dd>@r.IdempotencyKey</dd>
+    <dt>Person</dt><dd><a href="/People/Details/@r.PersonId">@Model.Person?.DisplayName</a></dd>
+    <dt>Urgency / effective</dt><dd>@r.Urgency / @r.EffectiveUtc.ToString("u")</dd>
+    <dt>Reason / ticket</dt><dd>@r.Reason / @r.TicketReference</dd>
+    <dt>Requested by</dt><dd>@r.RequestedByLabel</dd>
+    <dt>Configuration version</dt><dd>@r.ConfigurationVersion</dd>
+    <dt>Plan hash</dt><dd><small>@r.PlanHash</small></dd>
+    <dt>SLA due</dt><dd>@r.SlaDueUtc?.ToString("u")</dd>
+    <dt>SafelyContained at</dt><dd>@(r.SafelyContainedUtc?.ToString("u") ?? "not yet")</dd>
+</dl></div>
+<div class="card"><h2>Approval</h2>
+@if (Model.Approval is null) { <p>No approval.</p> }
+else
+{
+    <dl class="kv"><dt>Status</dt><dd>@Model.Approval.Status</dd><dt>Requires</dt><dd>@Model.Approval.RequiredRole</dd><dt>Decided by</dt><dd>@Model.Approval.DecidedByLabel</dd><dt>Expires</dt><dd>@Model.Approval.ExpiresUtc.ToString("u")</dd></dl>
+}
+<div class="actions-row">
+@if (Model.CanDecide)
+{
+    <form method="post" asp-page-handler="Approve" class="inline"><input type="text" name="comment" placeholder="Comment" /><button type="submit">Approve plan</button></form>
+    <form method="post" asp-page-handler="Reject" class="inline"><input type="text" name="comment" placeholder="Reason" /><button type="submit" class="danger">Reject</button></form>
+}
+@if ((r.State == LeaverState.Approved || r.State == LeaverState.Scheduled) && Model.Can(Permission.ExecuteContainment))
+{
+    <form method="post" asp-page-handler="Start" class="inline"><button type="submit">Start containment</button></form>
+}
+@if (LeaverStateMachine.IsContainmentInFlight(r.State) || r.State == LeaverState.ReconciliationRequired)
+{
+    <form method="post" asp-page-handler="Reverify" class="inline"><button type="submit" class="secondary">Re-verify now</button></form>
+}
+@if (r.State is LeaverState.SafelyContained or LeaverState.RetentionActionsPending or LeaverState.OwnershipTransferPending or LeaverState.ReconciliationPending or LeaverState.RollbackRequested)
+{
+    <form method="post" asp-page-handler="Advance" class="inline"><button type="submit" class="secondary">Advance non-urgent stages</button></form>
+}
+@if (LeaverStateMachine.IsCancellable(r.State))
+{
+    <form method="post" asp-page-handler="Cancel" class="inline"><input type="text" name="reason" placeholder="Reason" /><button type="submit" class="secondary">Cancel</button></form>
+}
+@if (r.State is LeaverState.SafelyContained or LeaverState.RetentionActionsPending or LeaverState.OwnershipTransferPending && Model.Can(Permission.RequestLeaver))
+{
+    <form method="post" asp-page-handler="Rollback" class="inline"><input type="text" name="reason" placeholder="Rollback reason" /><button type="submit" class="danger">Request rollback</button></form>
+}
+</div>
+</div>
+</div>
+
+<h2>Containment controls</h2>
+@if (r.Actions.Count == 0 && Model.Plan is not null)
+{
+    <p class="muted">Planned (not yet started):</p>
+    <table class="grid"><thead><tr><th>Step</th><th>Method</th><th>Target</th><th>Mandatory</th><th>Authority</th><th>Protection</th><th>Manual reason</th></tr></thead><tbody>
+    @foreach (var a in Model.Plan.Actions) { <tr><td>@a.Step</td><td>@(a.Skipped ? "Skipped" : a.Method.ToString())</td><td>@a.TargetLabel</td><td>@a.Mandatory</td><td><small>@a.AuthorityDecision</small></td><td><small>@a.ProtectionDecision</small></td><td>@a.ManualReason</td></tr> }
+    </tbody></table>
+}
+else
+{
+    <table class="grid"><thead><tr><th>#</th><th>Step</th><th>Method</th><th>Target</th><th>Mandatory</th><th>Status</th><th>DC</th><th>Evidence</th><th>Task</th></tr></thead><tbody>
+    @foreach (var a in r.Actions.OrderBy(a => a.Step).ThenBy(a => a.Sequence))
+    {
+        <tr><td>@a.Sequence</td><td>@a.Step</td><td>@a.Method</td><td>@a.TargetLabel</td><td>@(a.Mandatory ? "Yes" : "Best effort")</td>
+        <td><span class="badge @(a.Status is ContainmentActionStatus.Verified or ContainmentActionStatus.Succeeded or ContainmentActionStatus.Skipped ? "ok" : "warn")">@a.Status</span></td>
+        <td>@a.SelectedDomainController</td><td><small>@a.Evidence</small></td><td>@if (a.ManualTaskId is not null) { <a href="/Tasks/Details/@a.ManualTaskId">task</a> }</td></tr>
+    }
+    </tbody></table>
+}
+@if (Model.Plan?.UnresolvedLinks.Count > 0)
+{
+    <div class="banner warn">Unresolved identity links: @string.Join(", ", Model.Plan.UnresolvedLinks.Select(u => $"{u.Label} ({u.Confidence})")). Confirm or reject them on the person's page.</div>
+}
+
+<h2>Manual tasks</h2>
+<table class="grid"><thead><tr><th>Created</th><th>Kind</th><th>Severity</th><th>Title</th><th>Status</th><th>SLA due</th></tr></thead><tbody>
+@foreach (var t in Model.Tasks) { <tr><td>@t.CreatedUtc.ToString("u")</td><td>@t.Kind</td><td>@t.Severity</td><td><a href="/Tasks/Details/@t.Id">@t.Title</a></td><td>@t.Status</td><td>@t.SlaDueUtc?.ToString("u") @(t.SlaBreached ? "BREACHED" : "")</td></tr> }
+</tbody></table>
+
+<h2>Durable state history</h2>
+<table class="grid"><thead><tr><th>Time</th><th>Transition</th><th>Actor</th><th>Approver</th><th>Reason</th><th>Verified</th><th>Unresolved</th><th>Error</th></tr></thead><tbody>
+@foreach (var t in Model.Transitions)
+{
+    <tr><td>@t.TimestampUtc.ToString("u")</td><td>@t.PreviousState → <strong>@t.NextState</strong></td><td>@t.Actor</td><td>@t.Approver</td><td>@t.Reason</td><td><small>@t.ActionsVerified</small></td><td><small>@t.UnresolvedActions</small></td><td>@(t.SafeErrorCategory == SafeErrorCategory.None ? "" : t.SafeErrorCategory.ToString())</td></tr>
+}
+</tbody></table>

@@ -1,0 +1,37 @@
+@page
+@model Ilm.Web.Pages.Admin.ConfigurationModel
+@using Ilm.Domain.Configuration
+@{ ViewData["Title"] = "Configuration versions"; }
+<h1>Configuration versions</h1>
+<p class="muted">Propose → validate → Security Approver approval (a different person) → activate. Each version records the version it replaced, so rollback is a new, approved version.</p>
+<table class="grid"><thead><tr><th>v</th><th>Status</th><th>Summary</th><th>Proposed by</th><th>Approved</th><th>Activated</th><th>Replaced</th><th>Issues</th><th></th></tr></thead><tbody>
+@foreach (var v in Model.Versions)
+{
+    <tr><td>@v.Version</td><td>@v.Status</td><td>@v.Summary</td><td>@v.ProposedByLabel</td><td>@v.ApprovedUtc?.ToString("u")</td><td>@v.ActivatedUtc?.ToString("u")</td><td>@v.SupersedesVersion</td><td><small>@(v.ValidationIssuesJson is "[]" or null ? "" : v.ValidationIssuesJson)</small></td>
+    <td>
+    @if (v.Status == ConfigurationVersionStatus.AwaitingApproval && Model.Can(Permission.ApproveConfiguration))
+    {
+        <form method="post" asp-page-handler="Decide" class="inline"><input type="hidden" name="version" value="@v.Version" /><input type="hidden" name="approve" value="true" /><button type="submit">Approve</button></form>
+        <form method="post" asp-page-handler="Decide" class="inline"><input type="hidden" name="version" value="@v.Version" /><input type="hidden" name="approve" value="false" /><button type="submit" class="danger">Reject</button></form>
+    }
+    @if (v.Status == ConfigurationVersionStatus.Approved && Model.Can(Permission.ActivateConfiguration))
+    {
+        <form method="post" asp-page-handler="Activate" class="inline"><input type="hidden" name="version" value="@v.Version" /><button type="submit">Activate</button></form>
+    }
+    @if (v.Status == ConfigurationVersionStatus.Superseded && Model.Can(Permission.ProposeConfiguration))
+    {
+        <form method="post" asp-page-handler="Rollback" class="inline"><input type="hidden" name="version" value="@v.Version" /><button type="submit" class="secondary">Propose rollback</button></form>
+    }
+    </td></tr>
+}
+</tbody></table>
+@if (Model.Can(Permission.ProposeConfiguration))
+{
+    <h2>Propose a new version</h2>
+    <form method="post" asp-page-handler="Propose" class="card">
+        <label asp-for="Summary">Summary of the change</label><input type="text" asp-for="Summary" size="80" required />
+        <label asp-for="DocumentJson">Configuration document (JSON; unknown fields are rejected)</label>
+        <textarea asp-for="DocumentJson" rows="30"></textarea>
+        <p><button type="submit">Validate and propose</button></p>
+    </form>
+}

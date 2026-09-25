@@ -1,0 +1,5 @@
+@page
+@model Ilm.Web.Pages.Users.DetailsModel
+@{ ViewData["Title"] = Model.View.Object.SamAccountName; }
+<h1>User @Model.View.Object.SamAccountName <small class="muted">@Model.View.Object.ForestId</small></h1>
+<partial name="_ObjectView" model="Model.View" />

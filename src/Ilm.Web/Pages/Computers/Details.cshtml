@@ -1,0 +1,5 @@
+@page
+@model Ilm.Web.Pages.Computers.DetailsModel
+@{ ViewData["Title"] = Model.View.Object.Name; }
+<h1>Computer @Model.View.Object.Name <small class="muted">@Model.View.Object.ForestId</small></h1>
+<partial name="_ObjectView" model="Model.View" />

@@ -1,0 +1,39 @@
+@model Ilm.Modules.ReadOnly.DirectoryObjectView
+@{ var o = Model.Object; }
+<div class="cards">
+<div class="card"><h2>Directory object (safe attributes)</h2><dl class="kv">
+    <dt>objectGUID</dt><dd>@o.ObjectGuid</dd>
+    <dt>objectSid</dt><dd>@o.ObjectSid</dd>
+    <dt>DN (resolved now)</dt><dd>@o.DistinguishedName</dd>
+    <dt>Kind</dt><dd>@o.Kind</dd>
+    <dt>sAMAccountName</dt><dd>@o.SamAccountName</dd>
+    <dt>UPN</dt><dd>@o.UserPrincipalName</dd>
+    <dt>Mail</dt><dd>@o.Mail</dd>
+    <dt>Display name</dt><dd>@o.DisplayName</dd>
+    <dt>Department</dt><dd>@o.Department</dd>
+    <dt>Enabled</dt><dd>@(o.IsDisabled ? "Disabled" : "Enabled") (userAccountControl @o.UserAccountControl)</dd>
+    <dt>adminCount</dt><dd>@o.AdminCount</dd>
+    <dt>Operating system</dt><dd>@o.OperatingSystem @o.OperatingSystemVersion</dd>
+    <dt>DNS host name</dt><dd>@o.DnsHostName</dd>
+    <dt>managedBy</dt><dd>@o.ManagedBy</dd>
+    <dt>lastLogonTimestamp</dt><dd>@o.LastLogonTimestampUtc?.ToString("u")</dd>
+</dl></div>
+<div class="card"><h2>Protection</h2><partial name="_Protection" model="Model.Protection" />
+<h2>Scope</h2><p>@Model.Scope.Detail</p>
+@foreach (var w in Model.Warnings) { <div class="banner warn">@w</div> }
+<h2>Linked person</h2>
+@if (Model.Person is null) { <p>Not linked to a person.</p> } else { <p><a href="/People/Details/@Model.Person.Id">@Model.Person.DisplayName</a> (population @Model.Identity?.Population)</p> }
+</div>
+<div class="card"><h2>Permitted actions</h2><partial name="_Actions" model="Model.Actions" /></div>
+</div>
+@if (Model.LeaverAuthority.Count > 0)
+{
+    <h2>Authority ownership by attribute set</h2>
+    <table class="grid compact"><thead><tr><th>Attribute set</th><th>Leaver owner</th><th>Containment owner</th><th>Joiner owner</th><th>Joiner strategy</th></tr></thead><tbody>
+    @for (var i = 0; i < Model.LeaverAuthority.Count; i++)
+    {
+        var l = Model.LeaverAuthority[i]; var j = Model.JoinerAuthority[i];
+        <tr><td>@l.AttributeSet</td><td>@(l.IsResolved ? l.AuthoritativeSystem.ToString() : l.Outcome.ToString())</td><td>@l.ContainmentOwner</td><td>@(j.IsResolved ? j.AuthoritativeSystem.ToString() : j.Outcome.ToString())</td><td>@j.Strategy</td></tr>
+    }
+    </tbody></table>
+}

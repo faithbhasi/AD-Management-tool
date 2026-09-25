@@ -1,0 +1,24 @@
+@page "{id:guid}"
+@model Ilm.Web.Pages.Tasks.DetailsModel
+@using Ilm.Domain.Tasks
+@{ var t = Model.Item; ViewData["Title"] = t.Title; }
+<h1>@t.Title</h1>
+<div class="card"><dl class="kv">
+    <dt>Kind</dt><dd>@t.Kind</dd><dt>Severity</dt><dd>@t.Severity</dd><dt>Status</dt><dd>@t.Status</dd>
+    <dt>Assigned role</dt><dd>@t.AssignedRole</dd><dt>SLA due</dt><dd>@t.SlaDueUtc?.ToString("u") @(t.SlaBreached ? "(BREACHED)" : "")</dd>
+    <dt>Verification</dt><dd>@(t.VerificationRequired ? "ILM re-reads the target and closes the task only when it observes the result." : "Operator evidence closes the task.")</dd>
+    <dt>Evidence</dt><dd>@t.CompletionEvidence</dd>
+    @if (t.LeaverRequestId is not null) { <dt>Leaver</dt><dd><a href="/Leavers/Details/@t.LeaverRequestId">@t.LeaverRequestId</a></dd> }
+</dl></div>
+<h2>Runbook</h2>
+<pre class="runbook">@t.RunbookMarkdown</pre>
+<h2>Targets</h2>
+<pre class="runbook">@t.TargetsJson</pre>
+@if (t.Status is ManualTaskStatus.Open or ManualTaskStatus.InProgress)
+{
+    <form method="post" asp-page-handler="Complete">
+        <label for="evidence">Completion evidence (change ticket, what was done)</label>
+        <input type="text" id="evidence" name="evidence" size="80" required />
+        <p><button type="submit">Record completion</button></p>
+    </form>
+}
